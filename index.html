@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>מסמכי משפחה</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#F2F2F7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="מסמכי משפחה">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#F2F2F7; --card:#FFFFFF;
+  --blue:#007AFF; --green:#34C759; --orange:#FF9500; --red:#FF3B30; --purple:#AF52DE;
+  --navy:#1C1C2E; --blue-deep:#0051D5; --gold:#B4862F;
+  --label:#000000; --label2:rgba(60,60,67,0.85); --label3:#8E8E93;
+  --sep:rgba(60,60,67,0.12); --fill:rgba(120,120,128,0.12); --fill2:rgba(120,120,128,0.20);
+  --shadow:0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.05);
+  --shadow-sm:0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.05);
+  --r:14px; --r-lg:20px;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);font-family:var(--font);color:var(--label);direction:rtl;height:100%;-webkit-font-smoothing:antialiased;overflow-x:hidden;width:100%;}
+#app{max-width:520px;margin:0 auto;min-height:100vh;position:relative;padding-bottom:78px;overflow-x:hidden;}
+.hidden{display:none !important;}
+.top-header{padding:14px 18px 8px;position:sticky;top:0;background:rgba(242,242,247,.88);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid var(--sep);z-index:5;}
+.top-header h1{font-size:24px;font-weight:700;margin:0;letter-spacing:-0.3px;color:var(--label);}
+.search-wrap{padding:4px 16px 8px;}
+.search-input{width:100%;padding:11px 14px;border-radius:12px;border:1px solid var(--sep);background:var(--card);font-size:15px;font-family:var(--font);}
+.pills{display:flex;gap:10px;padding:6px 16px 14px;}
+.pill{flex:1;background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:14px 8px 12px;text-align:center;position:relative;overflow:hidden;}
+.pill:before{content:"";position:absolute;top:0;right:0;left:0;height:3px;background:var(--fill2);}
+.pill.r:before{background:var(--red);} .pill.o:before{background:var(--orange);} .pill.g:before{background:var(--green);}
+.pill-num{font-size:19px;font-weight:700;line-height:1;letter-spacing:-0.01em;}
+.pill-lbl{font-size:10px;color:var(--label3);margin-top:4px;font-weight:500;letter-spacing:0.01em;}
+.pill-num.r{color:var(--red)} .pill-num.o{color:var(--orange)} .pill-num.g{color:var(--green)} .pill-num.gr{color:var(--label3)}
+.chips{display:flex;gap:8px;padding:6px 16px 6px;overflow-x:auto;}
+.chip{padding:6px 13px;border-radius:20px;border:1px solid var(--sep);background:var(--card);color:var(--label2);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all .18s;font-family:var(--font);}
+.chip.on{background:var(--blue);color:#FFF;border-color:var(--blue);}
+.filter-bar-btn{padding:6px 16px;}
+.filter-bar-btn button{background:none;border:none;color:var(--blue);font-size:13px;font-weight:700;font-family:var(--font);}
+.list{padding:8px 16px 16px;}
+.doc-card{background:var(--card);border-radius:12px;box-shadow:var(--shadow);margin-bottom:9px;overflow:hidden;cursor:pointer;transition:background .12s;}
+.doc-card:active{transform:scale(.975);}
+.strip{height:3px;}
+.strip.ok{background:var(--green);} .strip.warning{background:var(--orange);} .strip.warn2{background:#B08A00;} .strip.critical{background:var(--red);} .strip.expired{background:var(--label3);}
+.doc-body{display:flex;align-items:center;padding:11px 14px;gap:11px;}
+.doc-em{font-size:30px;flex-shrink:0;}
+.doc-info{flex:1;min-width:0;}
+.doc-name{font-size:14.5px;font-weight:600;color:var(--label);}
+.doc-type{font-size:12px;color:var(--label3);margin-top:2px;}
+.badge{font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0;}
+.b-red{background:rgba(192,57,43,.1);color:var(--red);} .b-orange{background:rgba(201,121,26,.1);color:var(--orange);}
+.b-yellow{background:rgba(176,138,0,.1);color:#8a6d00;} .b-green{background:rgba(30,145,102,.1);color:var(--green);} .b-gray{background:var(--fill);color:var(--label3);}
+.empty-state{text-align:center;color:var(--label3);padding:60px 20px;font-size:14px;}
+.fab{width:48px;height:48px;border-radius:50%;background:var(--blue);color:#fff;font-size:24px;border:none;
+  box-shadow:0 4px 20px rgba(0,122,255,.42);cursor:pointer;position:absolute;bottom:78px;left:16px;
+  display:flex;align-items:center;justify-content:center;padding:0;line-height:1;transition:transform .15s;}
+.fab:active{transform:scale(.91);}
+.bottom-wrap{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;z-index:20;pointer-events:none;}
+.bottom-inner{max-width:520px;width:100%;position:relative;pointer-events:none;}
+.bottom-inner > *{pointer-events:auto;}
+.tabbar{position:static;background:rgba(242,242,247,.88);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-top:1px solid var(--sep);display:flex;padding:6px 0 max(6px,env(safe-area-inset-bottom));}
+.tab-item{flex:1;text-align:center;background:none;border:none;color:var(--label3);font-family:var(--font);cursor:pointer;padding:4px;transition:color .15s;}
+.tab-item.active{color:var(--blue);}
+.tab-icon{font-size:21px;display:block;}
+.tab-lbl{font-size:10px;margin-top:2px;font-weight:600;}
+.av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#007AFF,#5AC8FA);display:flex;align-items:center;justify-content:center;color:#FFF;font-size:13px;font-weight:600;flex-shrink:0;}
+.fam-card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);margin-bottom:9px;padding:11px 14px;display:flex;align-items:center;gap:11px;cursor:pointer;}
+.fam-name{font-size:14.5px;font-weight:600;color:var(--label);}
+.fam-rel{font-size:12px;color:var(--label3);}
+.settings-group{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);margin:0 16px 16px;overflow:hidden;}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--sep);}
+.settings-row:last-child{border-bottom:none;}
+.settings-row label{font-size:14px;}
+.settings-title{font-size:11px;color:var(--label3);margin:16px 16px 6px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;}
+input[type=text],input[type=password],input[type=email],input[type=date],input[type=number],select,textarea{
+  width:100%;padding:11px 12px;border-radius:11px;border:1px solid var(--sep);background:var(--card);font-size:15px;font-family:var(--font);color:var(--label);}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--blue);outline-offset:1px;}
+textarea{resize:vertical;min-height:60px;}
+.field{margin-bottom:14px;}
+.field-label{font-size:13px;color:var(--label3);margin-bottom:5px;display:block;font-weight:600;}
+.btn{display:block;width:100%;padding:12px;border-radius:12px;border:none;font-size:14.5px;font-weight:600;font-family:var(--font);cursor:pointer;margin-bottom:9px;min-height:44px;}
+.btn-blue{background:var(--blue);color:#FFF;} .btn-red{background:rgba(255,59,48,.13);color:var(--red);}
+.btn-gray{background:var(--fill);color:var(--label);} .btn-green{background:rgba(52,199,89,.13);color:var(--green);}
+.btn:active, button:active{transform:scale(.97);opacity:.85;transition:transform .08s, opacity .08s;}
+#busyBar{position:fixed;top:0;left:0;right:0;height:3px;z-index:300;background:transparent;pointer-events:none;overflow:hidden;opacity:0;transition:opacity .2s;}
+#busyBar.on{opacity:1;}
+#busyBar:before{content:"";position:absolute;top:0;bottom:0;width:40%;background:var(--blue);animation:busySlide 1s ease-in-out infinite;}
+@keyframes busySlide{0%{left:-40%} 100%{left:100%}}
+.sheet-overlay{position:fixed;inset:0;background:rgba(16,24,44,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center;overflow-x:hidden;width:100%;}
+.sheet{background:var(--bg);width:94%;max-width:480px;max-height:92vh;overflow-y:auto;overflow-x:hidden;border-radius:22px 22px 0 0;padding:16px;animation:slideup .22s ease-out;box-sizing:border-box;}
+@keyframes slideup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.sheet-header h2{font-size:16px;margin:0;font-weight:700;color:var(--label);}
+.sheet-close{background:var(--fill);border:none;border-radius:50%;width:30px;height:30px;font-size:14px;cursor:pointer;color:var(--label3);display:flex;align-items:center;justify-content:center;padding:0;line-height:1;flex-shrink:0;}
+.checkbox-row{display:flex;align-items:center;gap:8px;padding:8px 0;}
+.thumb-preview{max-width:100%;border-radius:12px;margin:8px 0;}
+#lock-screen{position:fixed;inset:0;background:linear-gradient(165deg,#1C1C2E 0%,#16213E 55%,#0F3460 100%);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;}
+#lock-screen .lock-title{color:#FFF;}
+#lock-screen .lock-sub{color:rgba(255,255,255,.65);}
+#lock-screen .longcode-box, #lock-screen input{color:var(--label);}
+.pin-dots{display:flex;gap:16px;margin:26px 0;}
+.pin-dot{width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.18);}
+.pin-dot.filled{background:#fff;}
+.pin-pad{display:grid;grid-template-columns:repeat(3,72px);gap:16px;direction:ltr;}
+.pin-key{width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.08);color:#FFF;box-shadow:none;border:1px solid rgba(255,255,255,.12);font-size:24px;font-family:var(--font);font-weight:600;cursor:pointer;}
+.pin-key:active{background:rgba(255,255,255,.16);}
+.lock-title{font-size:21px;font-weight:800;margin-bottom:6px;letter-spacing:-0.01em;}
+.lock-sub{font-size:13px;color:var(--label3);text-align:center;max-width:280px;}
+.longcode-box{width:100%;max-width:320px;}
+.longcode-warning{background:rgba(201,121,26,.12);color:#8a5000;padding:10px 14px;border-radius:12px;font-size:13px;margin-bottom:14px;line-height:1.6;}
+.toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:11px 22px;border-radius:20px;font-size:14px;z-index:200;box-shadow:0 6px 18px rgba(0,0,0,.25);}
+.chip-cat{font-size:11px;color:var(--label3);margin:4px 16px 0;}
+.doc-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px;}
+.doc-icon svg{width:17px;height:17px;}
+.img-flag{position:absolute;bottom:-2px;left:-2px;background:var(--card);border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;font-size:8px;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.15);}
+.date-field{display:flex;gap:8px;align-items:center;}
+.date-field input[type=text]{flex:1;}
+.date-cal-wrap{position:relative;width:42px;height:42px;flex-shrink:0;}
+.date-cal-btn{width:42px;height:42px;flex-shrink:0;border-radius:10px;border:1px solid var(--sep);background:var(--card);font-size:18px;cursor:pointer;pointer-events:none;}
+.date-native-overlay{position:absolute;inset:0;width:100%;height:100%;opacity:0;border:0;padding:0;margin:0;cursor:pointer;font-size:16px;}
+.field{position:relative;}
+.settings-row.between{display:flex;justify-content:space-between;align-items:center;}
+.switch{position:relative;width:46px;height:27px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;}
+.slider{position:absolute;cursor:pointer;inset:0;background:var(--fill2);border-radius:27px;transition:.2s;}
+.slider:before{content:"";position:absolute;height:23px;width:23px;left:3px;bottom:2px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);}
+input:checked + .slider{background:var(--green);}
+input:checked + .slider:before{transform:translateX(-19px);}
+
+/* ---------- מבנה טופס קומפקטי בסגנון "הגדרות" מקורי (iOS/Android) ---------- */
+.form-section-title{font-size:10.5px;color:var(--label3);text-transform:uppercase;letter-spacing:.05em;margin:14px 4px 6px;font-weight:600;}
+.form-card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;margin-bottom:4px;}
+.form-row{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-bottom:1px solid var(--sep);gap:10px;min-height:38px;}
+.form-row:last-child{border-bottom:none;}
+.form-row .frl{font-size:12px;color:var(--label3);flex-shrink:0;min-width:70px;}
+.form-row input[type=text],.form-row input[type=number],.form-row input[type=email],.form-row select{
+  border:none;background:transparent;text-align:right;padding:0;font-size:13px;flex:1;min-width:0;color:var(--label);font-family:var(--font);}
+.form-row input:focus,.form-row select:focus{outline:none;}
+.form-row input[type=file]{flex:1;font-size:12px;}
+.form-block{padding:10px 13px;}
+.form-block .frl{font-size:12.5px;color:var(--label3);display:block;margin-bottom:6px;}
+.form-block textarea{border:none;background:transparent;padding:0;font-size:14px;width:100%;font-family:var(--font);}
+.form-block textarea:focus{outline:none;}
+.reminder-chips{display:flex;flex-wrap:wrap;gap:7px;padding:11px 13px;}
+.chip-check{position:absolute;opacity:0;width:0;height:0;}
+.reminder-chip{padding:5px 11px;border-radius:12px;border:1px solid var(--sep);background:var(--fill);font-size:11px;color:var(--label2);cursor:pointer;font-weight:500;white-space:nowrap;transition:all .15s;}
+.chip-check:checked + .reminder-chip{background:var(--blue);color:#fff;border-color:var(--blue);}
+.chip-tags{display:flex;flex-wrap:wrap;gap:8px;padding:14px 14px 6px;}
+.tag-chip{display:flex;align-items:center;gap:6px;background:var(--fill);color:var(--label2);border-radius:16px;padding:5px 6px 5px 12px;font-size:12px;font-weight:500;}
+.tag-chip button{background:rgba(0,0,0,.08);border:none;color:var(--label3);width:18px;height:18px;border-radius:50%;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+.chev{color:var(--sep);font-size:15px;margin-left:2px;flex-shrink:0;}
+.btn-inline-add{background:var(--blue);color:#fff;border:none;border-radius:14px;padding:13px 22px;font-size:15px;font-weight:600;font-family:var(--font);cursor:pointer;flex-shrink:0;min-height:48px;}
+.d-row{display:flex;align-items:center;gap:8px;padding:14px 0;border-bottom:1px solid var(--sep);}
+.d-row:last-child{border-bottom:none;}
+.d-lbl{font-size:13px;color:var(--label3);flex-shrink:0;width:80px;text-align:right;}
+.d-val{font-size:14.5px;font-weight:500;color:var(--label);flex:1;min-width:0;display:flex;}
+.d-val-inner{text-align:right;word-break:break-word;}
+.copy-pill{flex-shrink:0;background:var(--fill);border:none;border-radius:20px;padding:6px 14px;font-size:12.5px;font-weight:600;font-family:var(--font);cursor:pointer;color:var(--blue);transition:all .15s;display:inline-flex;align-items:center;gap:4px;}
+.copy-pill.copied{background:rgba(52,199,89,.12);color:#0A7A2E;}
+</style>
+</head>
+<body>
+<div id="busyBar"></div>
+<div id="lock-screen"></div>
+<div id="app" class="hidden">
+
+  <!-- ===== TAB: מסמכים ===== -->
+  <div id="tab-docs" class="tab-page">
+    <div class="top-header"><h1>מסמכים</h1></div>
+    <div class="search-wrap"><input class="search-input" id="searchInput" type="text" placeholder="🔍 חיפוש לפי שם, סוג, מדינה, מספר, הערות..."></div>
+    <div class="pills" id="pills"></div>
+    <div class="chips" id="statusChips"></div>
+    <div class="filter-bar-btn">
+      <button onclick="openFilterSheet()">⚙️ סינון מתקדם</button>
+      <button onclick="clearFilters()" id="clearFiltersBtn" class="hidden" style="margin-right:14px;">נקה סינון</button>
+      <button onclick="openArchive()" style="float:left;">🗄️ ארכיון</button>
+    </div>
+    <div class="list" id="docList"></div>
+  </div>
+
+  <!-- ===== TAB: משפחה ===== -->
+  <div id="tab-family" class="tab-page hidden">
+    <div class="top-header"><h1>משפחה</h1></div>
+    <div class="list" id="famList"></div>
+  </div>
+
+  <!-- ===== TAB: הגדרות ===== -->
+  <div id="tab-settings" class="tab-page hidden">
+    <div class="top-header"><h1>הגדרות</h1></div>
+    <div class="settings-title">תזכורות מייל</div>
+    <div class="settings-group">
+      <div class="settings-row">
+        <label class="field-label" style="flex-shrink:0;">כתובת מייל</label>
+        <input type="email" id="reminderEmailInput" placeholder="you@gmail.com" style="border:none;background:transparent;padding:0;flex:1;min-width:0;text-align:left;direction:ltr;">
+        <button onclick="saveReminderEmail()" style="background:none;border:none;color:var(--blue);font-weight:600;font-size:14px;flex-shrink:0;">שמירה</button>
+      </div>
+      <div class="settings-row"><span style="font-size:14px;">שליחת מצב כל המסמכים</span><button onclick="sendStatusNowClick()" style="background:none;border:none;color:var(--green);font-weight:600;font-size:14px;">📧 שלח עכשיו</button></div>
+    </div>
+    <div class="settings-title">סוגי קשר משפחתי</div>
+    <div class="settings-group" id="relationTypesGroup"></div>
+    <div class="settings-title">מדינות</div>
+    <div class="settings-group" id="countriesGroup"></div>
+    <div class="settings-title">אבטחה</div>
+    <div class="settings-group">
+      <div class="settings-row" style="cursor:pointer;" onclick="openChangePin()"><span style="font-size:14px;">שינוי קוד PIN</span><span class="chev">‹</span></div>
+      <div class="settings-row between" id="biometricRow"></div>
+    </div>
+    <div class="settings-title">תמונות</div>
+    <div class="settings-group">
+      <div class="settings-row" style="cursor:pointer;" onclick="openImageGallery()"><span style="font-size:14px;">🖼️ כל תמונות המסמכים (לפי שם)</span><span class="chev">‹</span></div>
+    </div>
+    <div class="settings-title">גיבוי</div>
+    <div class="settings-group">
+      <div class="settings-row" style="cursor:pointer;" onclick="exportBackupClick()"><span style="font-size:14px;">📤 ייצוא גיבוי לקובץ</span><span class="chev">‹</span></div>
+      <div class="settings-row">
+        <label class="field-label" style="flex-shrink:0;">שחזור מקובץ</label>
+        <input type="file" id="importFile" accept="application/json" style="font-size:12px;flex:1;">
+      </div>
+    </div>
+    <div class="settings-title">חיבור לשרת</div>
+    <div class="settings-group">
+      <div class="settings-row" style="cursor:pointer;" onclick="changeServerConnection()"><span style="font-size:14px;">🔗 שינוי כתובת חיבור (Apps Script)</span><span class="chev">‹</span></div>
+    </div>
+    <div class="settings-title">יומן שגיאות</div>
+    <div class="settings-group" id="errorLogGroup"></div>
+    <div style="height:20px;"></div>
+  </div>
+
+  <div class="bottom-wrap"><div class="bottom-inner">
+    <div class="tabbar">
+      <button class="tab-item active" id="tabbtn-docs" onclick="switchTab('docs')"><span class="tab-icon">📄</span><span class="tab-lbl">מסמכים</span></button>
+      <button class="tab-item" id="tabbtn-family" onclick="switchTab('family')"><span class="tab-icon">👨‍👩‍👧</span><span class="tab-lbl">משפחה</span></button>
+      <button class="tab-item" id="tabbtn-settings" onclick="switchTab('settings')"><span class="tab-icon">⚙️</span><span class="tab-lbl">הגדרות</span></button>
+    </div>
+    <button class="fab" id="fab" onclick="onFabClick()">＋</button>
+  </div></div>
+</div>
+
+<div id="sheetRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+/*************************************************************
+ * הצפנה: מפתח אמיתי נגזר מ"קוד ארוך" (PBKDF2 -> AES-GCM).
+ * ה"קוד הארוך" לעולם לא נשלח לשרת ולא נשמר בשום מקום.
+ * במכשיר: לאחר הזנת הקוד הארוך פעם אחת, ה-master key נעטף
+ * (wrap) במפתח שנגזר מה-PIN ונשמר מוצפן ב-localStorage של
+ * המכשיר הזה בלבד. כך שבכניסות הבאות מספיק PIN.
+ *************************************************************/
+const enc = new TextEncoder(), dec = new TextDecoder();
+function b64(buf){
+  const bytes = new Uint8Array(buf);
+  let binary = '';
+  const chunkSize = 8192;
+  for(let i=0; i<bytes.length; i+=chunkSize){
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunkSize));
+  }
+  return btoa(binary);
+}
+function unb64(str){return Uint8Array.from(atob(str),c=>c.charCodeAt(0)).buffer;}
+function randBytes(n){return crypto.getRandomValues(new Uint8Array(n));}
+
+async function deriveKey(secret, saltB64, iterations){
+  const salt = unb64(saltB64);
+  const base = await crypto.subtle.importKey('raw', enc.encode(secret), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations: iterations||210000, hash:'SHA-256'},
+    base, {name:'AES-GCM', length:256}, true, ['encrypt','decrypt','wrapKey','unwrapKey']);
+}
+
+async function aesEncryptJSON(key, obj){
+  const iv = randBytes(12);
+  const data = enc.encode(JSON.stringify(obj));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, data);
+  return b64(iv)+'.'+b64(ct);
+}
+async function aesDecryptJSON(key, payload){
+  const [ivB64, ctB64] = payload.split('.');
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv: unb64(ivB64)}, key, unb64(ctB64));
+  return JSON.parse(dec.decode(pt));
+}
+async function aesEncryptText(key, text){
+  const iv = randBytes(12);
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(text));
+  return b64(iv)+'.'+b64(ct);
+}
+async function aesDecryptText(key, payload){
+  const [ivB64, ctB64] = payload.split('.');
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv: unb64(ivB64)}, key, unb64(ctB64));
+  return dec.decode(pt);
+}
+
+/* עטיפת master key ע"י מפתח שנגזר מ-PIN, ושמירה מקומית במכשיר */
+async function wrapMasterKeyWithPin(masterKey, pin, pinSalt){
+  const pinKey = await deriveKey(pin, pinSalt, 150000);
+  const iv = randBytes(12);
+  const raw = await crypto.subtle.exportKey('raw', masterKey);
+  const wrapped = await crypto.subtle.encrypt({name:'AES-GCM', iv}, pinKey, raw);
+  return {iv:b64(iv), data:b64(wrapped)};
+}
+async function unwrapMasterKeyWithPin(wrappedObj, pin, pinSalt){
+  const pinKey = await deriveKey(pin, pinSalt, 150000);
+  const raw = await crypto.subtle.decrypt({name:'AES-GCM', iv: unb64(wrappedObj.iv)}, pinKey, unb64(wrappedObj.data));
+  return crypto.subtle.importKey('raw', raw, 'AES-GCM', true, ['encrypt','decrypt']);
+}
+
+/* ---------- Face ID / טביעת אצבע (WebAuthn + PRF) ----------
+   PRF (Pseudo-Random Function) היא הרחבה של WebAuthn שמאפשרת לגזור
+   מפתח סודי אמיתי מתוך האימות הביומטרי (ולא רק "לאשר נוכחות").
+   המפתח הזה משמש לעטוף (wrap) את ה-master key, בדיוק כמו ה-PIN,
+   ונשמר מקומית במכשיר בלבד. נתמך ב-Safari/iOS מגרסה 18 ומעלה,
+   ודורש כתובת HTTPS עצמאית (לא iframe) - בדיוק המצב אחרי המעבר. */
+async function biometricAvailable(){
+  if(!(window.PublicKeyCredential && navigator.credentials)) return false;
+  try{
+    if(PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable){
+      return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    }
+  }catch(e){}
+  return false;
+}
+async function enrollBiometric(){
+  if(!MASTER_KEY) throw new Error('יש להיות מחוברים כדי להפעיל Face ID');
+  let cred;
+  try{
+    cred = await navigator.credentials.create({
+      publicKey:{
+        challenge: randBytes(32),
+        rp: { name: 'מסמכי משפחה' },
+        user: { id: randBytes(16), name: 'user', displayName: 'משתמש' },
+        pubKeyCredParams: [{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+        authenticatorSelection: { authenticatorAttachment:'platform', userVerification:'required', residentKey:'required' },
+        timeout: 60000,
+        extensions: { prf: {} }
+      }
+    });
+  }catch(e){ throw new Error('הפעולה בוטלה או שהמכשיר לא תומך'); }
+
+  const prfSalt = randBytes(32);
+  const assertion = await navigator.credentials.get({
+    publicKey: {
+      challenge: randBytes(32),
+      allowCredentials: [{ id: cred.rawId, type:'public-key' }],
+      userVerification:'required',
+      extensions: { prf: { eval: { first: prfSalt } } }
+    }
+  });
+  const extResults = assertion.getClientExtensionResults();
+  if(!extResults.prf || !extResults.prf.results || !extResults.prf.results.first){
+    throw new Error('המכשיר הזה לא תומך בשמירת מפתח מוצפן דרך Face ID. אפשר להמשיך עם PIN.');
+  }
+  const keyMaterial = await crypto.subtle.digest('SHA-256', extResults.prf.results.first);
+  const bioKey = await crypto.subtle.importKey('raw', keyMaterial, 'AES-GCM', false, ['encrypt']);
+  const iv = randBytes(12);
+  const raw = await crypto.subtle.exportKey('raw', MASTER_KEY);
+  const wrapped = await crypto.subtle.encrypt({name:'AES-GCM', iv}, bioKey, raw);
+
+  const device = localGet('mdocs_device') || {};
+  device.bio = { credId: b64(cred.rawId), prfSalt: b64(prfSalt), wrapped: { iv: b64(iv), data: b64(wrapped) } };
+  localSet('mdocs_device', device);
+}
+async function unlockWithBiometric(bio){
+  const assertion = await navigator.credentials.get({
+    publicKey: {
+      challenge: randBytes(32),
+      allowCredentials: [{ id: unb64(bio.credId), type:'public-key' }],
+      userVerification: 'required',
+      extensions: { prf: { eval: { first: unb64(bio.prfSalt) } } }
+    }
+  });
+  const extResults = assertion.getClientExtensionResults();
+  if(!extResults.prf || !extResults.prf.results || !extResults.prf.results.first) throw new Error('שגיאת Face ID');
+  const keyMaterial = await crypto.subtle.digest('SHA-256', extResults.prf.results.first);
+  const bioKey = await crypto.subtle.importKey('raw', keyMaterial, 'AES-GCM', false, ['decrypt']);
+  const raw = await crypto.subtle.decrypt({name:'AES-GCM', iv: unb64(bio.wrapped.iv)}, bioKey, unb64(bio.wrapped.data));
+  MASTER_KEY = await crypto.subtle.importKey('raw', raw, 'AES-GCM', true, ['encrypt','decrypt']);
+}
+function disableBiometric(){
+  const device = localGet('mdocs_device');
+  if(device){ delete device.bio; localSet('mdocs_device', device); }
+  renderBiometricRow();
+  toast('Face ID כובה במכשיר זה');
+}
+async function doEnrollBiometric(){
+  try{
+    await enrollBiometric();
+    toast('Face ID הופעל בהצלחה ✓');
+  }catch(e){
+    toast(e.message || 'שגיאה בהפעלת Face ID');
+  }
+  renderBiometricRow();
+}
+
+/*************************************************************
+ * מצב גלובלי
+ *************************************************************/
+let MASTER_KEY = null;
+let DB = null; // { family:[], documents:[], countries:[], relationTypes:[], salt:'' }
+let lastActivity = Date.now();
+const IDLE_LIMIT_MS = 3*60*1000; // 3 דקות בדיוק כמבוקש
+let currentFilter = {status:'all', types:[], countries:[], people:[], archive:false};
+let editingDocId = null, editingFamId = null, pendingImageBase64 = null, pendingImageMime=null, pendingImageDelete=false;
+
+const ICON_EMOJI = { passport:'📘', id:'🪪', license:'🚗', visa:'🛂', other:'📄' };
+const ICON_COLORS = {
+  passport:'#007AFF', id:'#AF52DE', license:'#FF9500', visa:'#34C759', other:'#8E8E93'
+};
+const DOC_TYPES = [
+  {id:'passport', label:'דרכון'},
+  {id:'id', label:'תעודת זהות'},
+  {id:'license', label:'רישיון נהיגה'},
+  {id:'visa', label:'ויזה'},
+  {id:'other', label:'מסמך אחר'}
+];
+function docIconHtml(typeId, hasImage){
+  const color = ICON_COLORS[typeId] || ICON_COLORS.other;
+  return `<div class="doc-icon" style="background:${color}1E;position:relative;">${ICON_EMOJI[typeId]||ICON_EMOJI.other}${hasImage?'<div class="img-flag">📎</div>':''}</div>`;
+}
+const REMINDER_OPTIONS = [
+  {days:180, label:'6 חודשים לפני'},{days:90, label:'3 חודשים לפני'},{days:30, label:'30 יום לפני'},
+  {days:14, label:'שבועיים לפני'},{days:7, label:'שבוע לפני'},{days:1, label:'יום לפני'},{days:0, label:'ביום התפוגה'}
+];
+const DEFAULT_RELATIONS = ['עצמי','אבא','אמא','אחר'];
+
+function docTypeMeta(id){return DOC_TYPES.find(d=>d.id===id) || DOC_TYPES[4];}
+
+/* ---- שדה תאריך כפול: הקלדה ידנית (DD/MM/YYYY) + כפתור לוח שנה ---- */
+function isoToDMY(iso){ if(!iso) return ''; const p=iso.split('-'); if(p.length!==3) return ''; return p[2]+'/'+p[1]+'/'+p[0]; }
+function dmyToISO(str){
+  const m = (str||'').trim().match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/);
+  if(!m) return '';
+  const dd=('0'+m[1]).slice(-2), mm=('0'+m[2]).slice(-2);
+  return m[3]+'-'+mm+'-'+dd;
+}
+function formatDateTyping(v){
+  v = v.replace(/[^\d]/g,'').slice(0,8);
+  if(v.length>4) return v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
+  if(v.length>2) return v.slice(0,2)+'/'+v.slice(2);
+  return v;
+}
+function dateFieldHTML(id, iso){
+  return `<div class="date-field">
+    <input type="text" id="${id}" inputmode="numeric" placeholder="DD/MM/YYYY" value="${isoToDMY(iso)}" maxlength="10">
+    <div class="date-cal-wrap">
+      <button type="button" class="date-cal-btn" tabindex="-1">📅</button>
+      <input type="date" id="${id}_native" class="date-native-overlay" value="${iso||''}">
+    </div>
+  </div>`;
+}
+function initDateField(id){
+  const txt = document.getElementById(id);
+  const nat = document.getElementById(id+'_native');
+  if(!txt||!nat) return;
+  txt.addEventListener('input', e=>{ e.target.value = formatDateTyping(e.target.value); });
+  txt.addEventListener('blur', e=>{
+    const iso = dmyToISO(e.target.value);
+    if(iso) nat.value = iso;
+  });
+  nat.addEventListener('change', e=>{ txt.value = isoToDMY(e.target.value); });
+}
+function openNativeDate(id){
+  const nat = document.getElementById(id+'_native');
+  if(!nat) return;
+  if(nat.showPicker){ try{ nat.showPicker(); return; }catch(e){} }
+  nat.focus(); nat.click();
+}
+function getDateFieldISO(id){
+  const nat = document.getElementById(id+'_native');
+  const txt = document.getElementById(id);
+  if(nat && nat.value) return nat.value;
+  if(txt) return dmyToISO(txt.value);
+  return '';
+}
+
+/*************************************************************
+ * מסך נעילה
+ *************************************************************/
+function localGet(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}}
+function localSet(k,v){localStorage.setItem(k, JSON.stringify(v));}
+
+async function initLockScreen(){
+  const deviceInfo = localGet('mdocs_device'); // {wrapped, pinSalt}
+  const el = document.getElementById('lock-screen');
+  if (deviceInfo){
+    renderPinEntry(el, deviceInfo);
+    return;
+  }
+  // אין נתונים מקומיים במכשיר הזה - חשוב לבדוק אם כבר יש נתונים בשרת
+  // לפני שמאפשרים "התקנה חדשה", כדי לא לדרוס נתונים קיימים ממכשיר אחר
+  el.innerHTML = '<div class="lock-title">בודק נתונים קיימים...</div><div class="lock-sub">רגע אחד</div>';
+  let existing = false;
+  try{
+    const resp = await gasCall('loadEncryptedData');
+    existing = resp.exists;
+  }catch(e){}
+  if (existing){
+    showLongCodeRecovery(true);
+  } else {
+    renderFirstTimeSetup(el);
+  }
+}
+
+function renderFirstTimeSetup(el){
+  el.innerHTML = `
+    <div class="lock-title">ברוכים הבאים 👋</div>
+    <div class="lock-sub" style="margin-bottom:20px;">בואו נגדיר את ההצפנה של המסמכים שלכם</div>
+    <div class="longcode-box">
+      <div class="longcode-warning">⚠️ תכף תבחרו <b>קוד ארוך</b> - זה מפתח ההצפנה האמיתי. הוא לא נשמר בשום מקום (לא בשרת ולא בענן).
+      <b>רשמו אותו על פתק פיזי</b> ושמרו במקום בטוח. אם תשכחו אותו ואין מכשיר מאושר אחר - <b>אין דרך לשחזר את הנתונים</b>.</div>
+      <div class="field"><label class="field-label">בחרו קוד ארוך (לפחות 10 תווים)</label>
+        <input type="password" id="setupLongCode" placeholder="קוד ארוך וייחודי" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false"></div>
+      <div class="field"><label class="field-label">אימות קוד ארוך</label>
+        <input type="password" id="setupLongCode2" placeholder="הקלידו שוב" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false"></div>
+      <button type="button" onclick="toggleCodeVisibility(['setupLongCode','setupLongCode2'], this)" style="background:none;border:none;color:var(--blue);font-size:13px;font-weight:600;font-family:var(--font);padding:0 0 12px;cursor:pointer;">👁 הצג/הסתר את הקוד שהקלדתי</button>
+      <div class="field"><label class="field-label">בחרו קוד PIN (6-8 ספרות) לשימוש יומיומי</label>
+        <input type="password" id="setupPin" inputmode="numeric" placeholder="לדוגמה 1234"></div>
+      <button class="btn btn-blue" id="setupBtn" onclick="doFirstTimeSetup()">התחלה</button>
+      <div id="setupError" style="color:var(--red);font-size:13px;text-align:center;"></div>
+    </div>`;
+}
+function toggleCodeVisibility(ids, btn){
+  ids.forEach(id=>{
+    const inp = document.getElementById(id);
+    inp.type = (inp.type==='password') ? 'text' : 'password';
+  });
+}
+function setBtnLoading(btn, loadingText){
+  if(!btn) return;
+  btn.dataset.origText = btn.dataset.origText || btn.textContent;
+  btn.disabled = true;
+  btn.style.opacity = '0.65';
+  btn.textContent = loadingText || 'רגע אחד...';
+}
+function clearBtnLoading(btn){
+  if(!btn) return;
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  if(btn.dataset.origText) btn.textContent = btn.dataset.origText;
+}
+
+async function doFirstTimeSetup(){
+  const lc1 = document.getElementById('setupLongCode').value;
+  const lc2 = document.getElementById('setupLongCode2').value;
+  const pin = document.getElementById('setupPin').value;
+  const err = document.getElementById('setupError');
+  const btn = document.getElementById('setupBtn');
+  err.textContent = '';
+  if (lc1.length < 10){err.textContent='הקוד הארוך חייב לפחות 10 תווים'; return;}
+  if (lc1 !== lc2){err.textContent='הקודים הארוכים אינם תואמים'; return;}
+  if (!/^[0-9]{6,8}$/.test(pin)){err.textContent='PIN חייב להיות 6-8 ספרות (מינימום 6, לביטחון)'; return;}
+
+  setBtnLoading(btn, 'יוצר הצפנה...');
+  try{
+    const masterSalt = b64(randBytes(16));
+    const pinSalt = b64(randBytes(16));
+    MASTER_KEY = await deriveKey(lc1, masterSalt, 210000);
+    const wrapped = await wrapMasterKeyWithPin(MASTER_KEY, pin, pinSalt);
+    localSet('mdocs_device', {wrapped, pinSalt, masterSalt});
+
+    DB = {family:[], documents:[], countries:[], relationTypes: DEFAULT_RELATIONS.slice(), salt: masterSalt};
+    await persistDB();
+    unlockApp();
+  }catch(e){
+    clearBtnLoading(btn);
+    err.textContent = 'שגיאה בהתחברות לשרת: ' + (e && e.message ? e.message : 'בדקו את חיבור האינטרנט ואת כתובת ה-Apps Script בקובץ');
+  }
+}
+
+function renderPinEntry(el, deviceInfo){
+  let pinBuf = '';
+  const hasBio = !!deviceInfo.bio;
+  el.innerHTML = `
+    <div class="lock-title">מסמכי משפחה 🔒</div>
+    <div class="lock-sub" id="pinSub">הכניסו קוד PIN</div>
+    ${hasBio ? '<button class="btn btn-blue" style="max-width:260px;margin:6px auto 4px;" onclick="tryBiometricUnlock()">🔓 פתיחה עם Face ID</button>' : ''}
+    <div class="pin-dots" id="pinDots"></div>
+    <div class="pin-pad" id="pinPad"></div>
+    <button onclick="showLongCodeRecovery()" style="margin-top:14px;background:none;border:none;color:var(--blue);font-family:var(--font);">שכחתי PIN / מכשיר חדש</button>
+  `;
+  window.tryBiometricUnlock = async function(){
+    showBusy();
+    try{
+      await unlockWithBiometric(deviceInfo.bio);
+      await loadDB();
+      unlockApp();
+    }catch(e){
+      document.getElementById('pinSub').textContent = 'Face ID לא אושר, אפשר להזין PIN';
+      document.getElementById('pinSub').style.color='var(--red)';
+    }finally{ hideBusy(); }
+  };
+  function renderDots(){
+    document.getElementById('pinDots').innerHTML = Array.from({length:8}).map((_,i)=>
+      `<div class="pin-dot ${i<pinBuf.length?'filled':''}"></div>`).join('');
+  }
+  function renderPad(){
+    const keys = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+    document.getElementById('pinPad').innerHTML = keys.map(k=>{
+      if(k==='') return '<div></div>';
+      return `<button class="pin-key" onclick="pinKeyPress('${k}')">${k}</button>`;
+    }).join('');
+  }
+  window.pinKeyPress = async function(k){
+    if(k==='⌫'){pinBuf = pinBuf.slice(0,-1); renderDots(); return;}
+    if(pinBuf.length>=8) return;
+    pinBuf += k; renderDots();
+    if(pinBuf.length>=6){
+      // ננסה לפענח אוטומטית אחרי 6 ספרות (האורך המינימלי), ואם נכשל ממתינים לעוד ספרות
+      showBusy();
+      try{
+        MASTER_KEY = await unwrapMasterKeyWithPin(deviceInfo.wrapped, pinBuf, deviceInfo.pinSalt);
+        await loadDB();
+        unlockApp();
+      }catch(e){
+        if(pinBuf.length===8){
+          document.getElementById('pinSub').textContent = 'קוד שגוי, נסו שוב';
+          document.getElementById('pinSub').style.color='var(--red)';
+          pinBuf=''; renderDots();
+        }
+      }finally{ hideBusy(); }
+    }
+  };
+  renderDots(); renderPad();
+  if(hasBio){ setTimeout(()=>{ if(window.tryBiometricUnlock) window.tryBiometricUnlock(); }, 350); }
+}
+
+function showLongCodeRecovery(isNewDevice){
+  const el = document.getElementById('lock-screen');
+  const title = isNewDevice ? 'זוהו נתונים קיימים 🔗' : 'אישור מכשיר חדש';
+  const sub = isNewDevice
+    ? 'כבר יש נתונים שמורים מהחשבון הזה (למשל ממחשב אחר). כדי להתחבר אליהם מהמכשיר הזה, הכניסו את אותו הקוד הארוך שהשתמשתם בו בפעם הראשונה, ובחרו PIN לשימוש במכשיר הזה.'
+    : 'הכניסו את הקוד הארוך המקורי כדי לאשר את המכשיר הזה ולבחור PIN חדש';
+  el.innerHTML = `
+    <div class="lock-title">${title}</div>
+    <div class="lock-sub" style="margin-bottom:16px;">${sub}</div>
+    <div class="longcode-box">
+      <div class="field"><label class="field-label">קוד ארוך</label><input type="password" id="recLongCode" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false"></div>
+      <button type="button" onclick="toggleCodeVisibility(['recLongCode'], this)" style="background:none;border:none;color:var(--blue);font-size:13px;font-weight:600;font-family:var(--font);padding:0 0 12px;cursor:pointer;">👁 הצג/הסתר את הקוד שהקלדתי</button>
+      <div class="field"><label class="field-label">PIN חדש למכשיר זה (6-8 ספרות)</label><input type="password" id="recPin" inputmode="numeric"></div>
+      <button class="btn btn-blue" id="recBtn" onclick="doDeviceRecovery()">חבר מכשיר</button>
+      ${isNewDevice?'':'<button class="btn btn-gray" onclick="initLockScreen()">חזרה</button>'}
+      <div id="recError" style="color:var(--red);font-size:13px;text-align:center;"></div>
+    </div>`;
+}
+
+async function doDeviceRecovery(){
+  const lc = document.getElementById('recLongCode').value;
+  const pin = document.getElementById('recPin').value;
+  const err = document.getElementById('recError');
+  const btn = document.getElementById('recBtn');
+  err.textContent = '';
+  if(!/^[0-9]{6,8}$/.test(pin)){err.textContent='PIN חייב להיות 6-8 ספרות (מינימום 6, לביטחון)'; return;}
+  setBtnLoading(btn, 'בודק את הקוד...');
+  try{
+    // אנחנו לא יודעים את ה-salt המקורי מבלי לטעון קודם את הנתונים -
+    // הנתונים המוצפנים בשרת כוללים את ה-salt כשדה גלוי בתחילת הקובץ.
+    const resp = await gasCall('loadEncryptedData');
+    if(!resp.exists){ clearBtnLoading(btn); err.textContent='לא נמצאו נתונים בשרת עדיין'; return; }
+    const wrapper = JSON.parse(resp.payload);
+    const testKey = await deriveKey(lc, wrapper.salt, 210000);
+    DB = await aesDecryptJSON(testKey, wrapper.payload); // אם הקוד שגוי - תיזרק שגיאה כאן
+    MASTER_KEY = testKey;
+    const pinSalt = b64(randBytes(16));
+    const wrapped = await wrapMasterKeyWithPin(MASTER_KEY, pin, pinSalt);
+    localSet('mdocs_device', {wrapped, pinSalt, masterSalt: wrapper.salt});
+    unlockApp();
+  }catch(e){
+    clearBtnLoading(btn);
+    err.textContent = 'קוד ארוך שגוי, או שאין עדיין נתונים בשרת';
+  }
+}
+
+function unlockApp(){
+  document.getElementById('lock-screen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  lastActivity = Date.now();
+  renderAll();
+}
+
+function lockApp(){
+  MASTER_KEY = null; DB = null;
+  hideIdleWarning();
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('lock-screen').classList.remove('hidden');
+  initLockScreen();
+}
+
+let idleWarned = false;
+['click','keydown','touchstart','scroll'].forEach(ev=>{
+  document.addEventListener(ev, ()=>{
+    lastActivity = Date.now();
+    if(idleWarned){ idleWarned = false; hideIdleWarning(); }
+  });
+});
+function showIdleWarning(){
+  if(document.getElementById('idleWarnBanner')) return;
+  const b = document.createElement('div');
+  b.id = 'idleWarnBanner';
+  b.style.cssText = 'position:fixed;top:12px;left:12px;right:12px;z-index:200;background:#a15c00;color:#fff;'
+    + 'padding:10px 14px;border-radius:12px;font-size:13px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.25);'
+    + 'max-width:480px;margin:0 auto;cursor:pointer;';
+  b.textContent = 'האפליקציה תינעל בעוד 30 שניות עקב חוסר פעילות — לחצו כאן כדי להישאר מחוברים';
+  b.onclick = () => { lastActivity = Date.now(); idleWarned = false; hideIdleWarning(); };
+  document.body.appendChild(b);
+}
+function hideIdleWarning(){
+  const b = document.getElementById('idleWarnBanner');
+  if(b) b.remove();
+}
+setInterval(()=>{
+  if(!MASTER_KEY) return;
+  const idle = Date.now()-lastActivity;
+  if(idle > IDLE_LIMIT_MS){ idleWarned = false; hideIdleWarning(); lockApp(); }
+  else if(idle > IDLE_LIMIT_MS - 30000 && !idleWarned){ idleWarned = true; showIdleWarning(); }
+}, 5000);
+
+/*************************************************************
+ * תקשורת עם השרת (Apps Script)
+ *************************************************************/
+// כתובת ה-Web App של גוגל אפס-סקריפט - כל משתמש שומר כאן את הכתובת הפרטית שלו (מסך הגדרה ראשונית)
+var CONFIG_KEY = 'mdocs_apps_script_url';
+function getAppsScriptUrl(){ return localStorage.getItem(CONFIG_KEY) || ''; }
+Object.defineProperty(window, 'APPS_SCRIPT_URL', { get: getAppsScriptUrl });
+
+var _busyCount = 0;
+function showBusy(){
+  _busyCount++;
+  const bar = document.getElementById('busyBar');
+  if(bar) bar.classList.add('on');
+}
+function hideBusy(){
+  _busyCount = Math.max(0, _busyCount-1);
+  if(_busyCount===0){
+    const bar = document.getElementById('busyBar');
+    if(bar) bar.classList.remove('on');
+  }
+}
+
+function gasCall(fnName, ...args){
+  showBusy();
+  return new Promise((resolve,reject)=>{
+    fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      // חשוב: text/plain כדי למנוע preflight OPTIONS - אפס-סקריפט לא תומך בו
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ fn: fnName, args: args })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      if(res && res.__error){ logAppError('gasCall:'+fnName, res.__error); reject(new Error(res.__error)); }
+      else { resolve(res); }
+    })
+    .catch(function(e){ logAppError('gasCall:'+fnName, e && e.message ? e.message : String(e)); reject(e); })
+    .finally(function(){ hideBusy(); });
+  });
+}
+
+/* ---------- יומן שגיאות מקומי (לצורך דיווח/דיבוג) ---------- */
+function logAppError(context, message){
+  try{
+    const log = JSON.parse(localStorage.getItem('mdocs_errlog')||'[]');
+    log.push({ t: new Date().toISOString(), ctx: context, msg: String(message).slice(0,500) });
+    while(log.length>50) log.shift();
+    localStorage.setItem('mdocs_errlog', JSON.stringify(log));
+  }catch(e){}
+}
+window.addEventListener('error', function(e){
+  logAppError('window.onerror', (e && e.message) || 'Unknown error');
+});
+window.addEventListener('unhandledrejection', function(e){
+  logAppError('unhandledrejection', (e.reason && e.reason.message) || String(e.reason));
+});
+function getErrorLogText(){
+  const log = JSON.parse(localStorage.getItem('mdocs_errlog')||'[]');
+  if(!log.length) return 'אין שגיאות רשומות.';
+  return log.map(l=>`[${l.t}] ${l.ctx}: ${l.msg}`).join('\n');
+}
+function copyErrorLog(){
+  copyText(getErrorLogText());
+}
+function clearErrorLog(){
+  localStorage.removeItem('mdocs_errlog');
+  toast('יומן השגיאות נוקה');
+  renderErrorLogSettings();
+}
+function renderErrorLogSettings(){
+  const el = document.getElementById('errorLogGroup');
+  if(!el) return;
+  const log = JSON.parse(localStorage.getItem('mdocs_errlog')||'[]');
+  el.innerHTML = `
+    <div class="settings-row"><label style="font-size:14px;">שגיאות רשומות</label><span style="color:var(--label3);font-size:13px;">${log.length}</span></div>
+    <div class="settings-row"><span style="font-size:14px;color:var(--label3);">ניהול היומן</span><span style="display:flex;gap:14px;"><button onclick="copyErrorLog()" style="background:none;border:none;color:var(--blue);font-weight:600;font-size:13px;">📋 העתק</button><button onclick="clearErrorLog()" style="background:none;border:none;color:var(--red);font-weight:600;font-size:13px;">מחיקה</button></span></div>`;
+}
+
+async function persistDB(){
+  const wrapper = { salt: DB.salt, payload: await aesEncryptJSON(MASTER_KEY, DB) };
+  const idx = buildExpiryIndex();
+  const res = await gasCall('saveEncryptedDataAndIndex', JSON.stringify(wrapper), idx, DB._serverTimestamp || null);
+  if(res && res.conflict){
+    alert('הנתונים עודכנו בינתיים ממכשיר אחר. כדי לא לדרוס שינויים, האפליקציה תטען מחדש את הנתונים העדכניים ביותר. השינוי האחרון שביצעת כאן לא יישמר - יש לבצע אותו שוב.');
+    await loadDB();
+    renderAll();
+    if(!document.getElementById('tab-settings').classList.contains('hidden')) renderSettingsTab();
+    if(!document.getElementById('tab-family').classList.contains('hidden')) renderFamilyTab();
+    throw new Error('conflict');
+  }
+  if(res && res.updated) DB._serverTimestamp = res.updated;
+}
+function buildExpiryIndex(){
+  return DB.documents.filter(d=>!d.archived && d.expiryDate).map(d=>{
+    const fam = DB.family.find(f=>f.id===d.familyId);
+    return {
+      id: d.id,
+      firstName: fam ? (fam.nameHe||'').split(' ')[0] : '',
+      docType: d.type,
+      country: d.country || '',
+      expiryDate: d.expiryDate,
+      reminders: d.reminders || [],
+      sentDays: d.sentDays || []
+    };
+  });
+}
+async function loadDB(){
+  const resp = await gasCall('loadEncryptedData');
+  if(!resp.exists){ DB = {family:[], documents:[], countries:[], relationTypes: DEFAULT_RELATIONS.slice(), salt: b64(randBytes(16))}; DB._serverTimestamp = null; return; }
+  const wrapper = JSON.parse(resp.payload);
+  DB = await aesDecryptJSON(MASTER_KEY, wrapper.payload);
+  DB.relationTypes = DB.relationTypes && DB.relationTypes.length ? DB.relationTypes : DEFAULT_RELATIONS.slice();
+  DB.salt = wrapper.salt;
+  DB._serverTimestamp = resp.updated;
+}
+
+async function persistExpiryIndex(){
+  const idx = DB.documents.filter(d=>!d.archived && d.expiryDate).map(d=>{
+    const fam = DB.family.find(f=>f.id===d.familyId);
+    return {
+      id: d.id,
+      firstName: fam ? (fam.nameHe||'').split(' ')[0] : '',
+      docType: d.type,
+      expiryDate: d.expiryDate,
+      reminders: d.reminders || [],
+      sentDays: d.sentDays || []
+    };
+  });
+  await gasCall('saveExpiryIndex', idx);
+}
+
+/*************************************************************
+ * חישוב סטטוס תפוגה
+ *************************************************************/
+function daysUntil(dateStr){
+  if(!dateStr) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr);
+  return Math.round((d-today)/86400000);
+}
+function statusOf(doc){
+  if(doc.archived) return 'expired';
+  const days = daysUntil(doc.expiryDate);
+  if(days===null) return 'expired'; // אפור = ללא תאריך
+  if(days<30) return 'critical';
+  if(days<180) return 'warning';
+  return 'ok';
+}
+function formatDDMMYYYY(dateStr){
+  if(!dateStr) return '';
+  const d = new Date(dateStr);
+  const dd=('0'+d.getDate()).slice(-2), mm=('0'+(d.getMonth()+1)).slice(-2);
+  return dd+'/'+mm+'/'+d.getFullYear();
+}
+function daysLabel(days){
+  if(days===null) return 'ללא תאריך';
+  if(days<0) return 'פג תוקף';
+  if(days===0) return 'פג היום';
+  return 'נותרו ' + humanizeDuration(days);
+}
+// הופך מספר ימים למחרוזת ידידותית: "X ימים" / "X חודשים" / "שנה" / "שנה וחודשיים" וכו'
+function humanizeDuration(days){
+  if(days < 60) return days + ' ימים';
+  const totalMonths = Math.round(days / 30);
+  const years = Math.floor(totalMonths / 12);
+  const months = totalMonths % 12;
+  if(years === 0) return months + ' חודשים';
+  const yearPart = years === 1 ? 'שנה' : years + ' שנים';
+  if(months === 0) return yearPart;
+  const monthPart = months === 1 ? 'חודש' : (months === 2 ? 'חודשיים' : months + ' חודשים');
+  return yearPart + ' ו' + monthPart;
+}
+
+/*************************************************************
+ * ניווט טאבים
+ *************************************************************/
+function switchTab(name){
+  ['docs','family','settings'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('hidden', t!==name);
+    document.getElementById('tabbtn-'+t).classList.toggle('active', t===name);
+  });
+  document.getElementById('fab').classList.toggle('hidden', name==='settings');
+  if(name==='family') renderFamilyTab();
+  if(name==='settings') renderSettingsTab();
+}
+function onFabClick(){
+  const active = document.getElementById('tab-family').classList.contains('hidden') ? 'docs':'family';
+  if(active==='family') openFamilyForm(null); else openDocForm(null);
+}
+
+/*************************************************************
+ * רינדור: מסמכים
+ *************************************************************/
+function renderAll(){ renderDocsTab(); }
+
+function computeCounts(list){
+  const c = {red:0,orange:0,green:0,gray:0};
+  list.forEach(d=>{
+    const days = daysUntil(d.expiryDate);
+    if(days===null) c.gray++;
+    else if(days<30) c.red++;
+    else if(days<180) c.orange++;
+    else c.green++;
+  });
+  return c;
+}
+
+function matchesFilter(d){
+  if(!currentFilter.archive && d.archived) return false;
+  if(currentFilter.archive && !d.archived) return false;
+  if(currentFilter.status!=='all'){
+    const st = statusOf(d);
+    if(currentFilter.status==='red' && st!=='critical') return false;
+    if(currentFilter.status==='orange' && st!=='warning') return false;
+    if(currentFilter.status==='green' && st!=='ok') return false;
+  }
+  if(currentFilter.types.length && !currentFilter.types.includes(d.type)) return false;
+  if(currentFilter.countries.length && !currentFilter.countries.includes(d.country)) return false;
+  if(currentFilter.people.length && !currentFilter.people.includes(d.familyId)) return false;
+  const q = (document.getElementById('searchInput').value||'').trim().toLowerCase();
+  if(q){
+    const fam = DB.family.find(f=>f.id===d.familyId);
+    const hay = [fam?fam.nameHe:'', fam?fam.nameEn:'', docTypeMeta(d.type).label, d.country, d.docNumber, d.notes].join(' ').toLowerCase();
+    if(!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function renderDocsTab(){
+  const nonArchived = DB.documents.filter(d=>!d.archived);
+  const counts = computeCounts(nonArchived);
+  document.getElementById('pills').innerHTML = `
+    <div class="pill r"><div class="pill-num r">${counts.red}</div><div class="pill-lbl">דחוף</div></div>
+    <div class="pill o"><div class="pill-num o">${counts.orange}</div><div class="pill-lbl">בקרוב</div></div>
+    <div class="pill g"><div class="pill-num g">${counts.green}</div><div class="pill-lbl">תקין</div></div>
+    <div class="pill"><div class="pill-num gr">${counts.gray}</div><div class="pill-lbl">ללא תפוגה</div></div>`;
+
+  document.getElementById('statusChips').innerHTML = ['all','red','orange','green'].map(s=>{
+    const labels={all:'הכל',red:'דחוף 🔴',orange:'בקרוב 🟡',green:'תקין 🟢'};
+    return `<button class="chip ${currentFilter.status===s?'on':''}" onclick="setStatusFilter('${s}')">${labels[s]}</button>`;
+  }).join('');
+
+  document.getElementById('clearFiltersBtn').classList.toggle('hidden',
+    currentFilter.status==='all' && !currentFilter.types.length && !currentFilter.countries.length && !currentFilter.people.length && !currentFilter.archive && !document.getElementById('searchInput').value);
+
+  let list = DB.documents.filter(matchesFilter);
+  list.sort((a,b)=>{
+    const da = a.expiryDate ? new Date(a.expiryDate).getTime() : Infinity;
+    const db_ = b.expiryDate ? new Date(b.expiryDate).getTime() : Infinity;
+    return da-db_;
+  });
+
+  const container = document.getElementById('docList');
+  if(!list.length){ container.innerHTML = '<div class="empty-state">אין מסמכים להצגה</div>'; return; }
+  container.innerHTML = list.map(d=>{
+    const fam = DB.family.find(f=>f.id===d.familyId);
+    const meta = docTypeMeta(d.type);
+    const days = daysUntil(d.expiryDate);
+    const st = statusOf(d);
+    const stripClass = st==='ok'?'ok':st==='warning'?'warning':st==='critical'?'critical':'expired';
+    const badgeClass = st==='ok'?'b-green':st==='warning'?'b-orange':st==='critical'?'b-red':'b-gray';
+    return `<div class="doc-card" onclick="openDocDetail('${d.id}')">
+      <div class="strip ${stripClass}"></div>
+      <div class="doc-body">
+        ${docIconHtml(d.type, d.hasImage)}
+        <div class="doc-info">
+          <div class="doc-name">${fam?fam.nameHe:'?'} ${d.archived?'· בארכיון':''}</div>
+          <div class="doc-type">${meta.label}${d.country?' · '+d.country:''}</div>
+        </div>
+        <div class="badge ${badgeClass}">${daysLabel(days)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function setStatusFilter(s){ currentFilter.status=s; renderDocsTab(); }
+function clearFilters(){ currentFilter={status:'all',types:[],countries:[],people:[],archive:false}; document.getElementById('searchInput').value=''; renderDocsTab(); }
+document.addEventListener('input', e=>{ if(e.target.id==='searchInput') renderDocsTab(); });
+
+function openArchive(){ currentFilter.archive = true; renderDocsTab(); openSheet(`
+  <div class="sheet-header"><h2>🗄️ ארכיון</h2><button class="sheet-close" onclick="closeArchiveSheet()">✕</button></div>
+  <div id="archiveList"></div>`);
+  renderArchiveList();
+}
+function renderArchiveList(){
+  const list = DB.documents.filter(d=>d.archived).sort((a,b)=>{
+    const da=a.expiryDate?new Date(a.expiryDate).getTime():Infinity, db_=b.expiryDate?new Date(b.expiryDate).getTime():Infinity; return da-db_;});
+  const el = document.getElementById('archiveList');
+  if(!el) return;
+  if(!list.length){ el.innerHTML='<div class="empty-state">הארכיון ריק</div>'; return; }
+  el.innerHTML = list.map(d=>{
+    const fam = DB.family.find(f=>f.id===d.familyId); const meta = docTypeMeta(d.type);
+    return `<div class="doc-card" onclick="closeSheet();openDocDetail('${d.id}')">
+      <div class="strip expired"></div>
+      <div class="doc-body">${docIconHtml(d.type, d.hasImage)}
+      <div class="doc-info"><div class="doc-name">${fam?fam.nameHe:'?'}</div><div class="doc-type">${meta.label}${d.expiryDate?' · '+formatDDMMYYYY(d.expiryDate):''}</div></div></div></div>`;
+  }).join('');
+}
+function closeArchiveSheet(){ currentFilter.archive=false; closeSheet(); renderDocsTab(); }
+
+function openFilterSheet(){
+  const usedTypes = [...new Set(DB.documents.map(d=>d.type))];
+  const usedCountries = [...new Set(DB.documents.map(d=>d.country).filter(Boolean))];
+  openSheet(`
+    <div class="sheet-header"><h2>סינון מתקדם</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+    <div class="chip-cat">סוג מסמך</div>
+    <div class="chips" style="flex-wrap:wrap;">${usedTypes.map(t=>{
+      const m=docTypeMeta(t);
+      return `<button class="chip ${currentFilter.types.includes(t)?'on':''}" data-cat="types" data-val="${escAttr(t)}" onclick="toggleFilterVal('types','${t}',this)">${m.label}</button>`;
+    }).join('')}</div>
+    <div class="chip-cat">מדינה</div>
+    <div class="chips" style="flex-wrap:wrap;">${usedCountries.map(c=>
+      `<button class="chip ${currentFilter.countries.includes(c)?'on':''}" data-cat="countries" data-val="${escAttr(c)}" onclick="toggleFilterVal('countries','${c}',this)">${c}</button>`).join('')}</div>
+    <div class="chip-cat">בן משפחה</div>
+    <div class="chips" style="flex-wrap:wrap;">${DB.family.map(f=>
+      `<button class="chip ${currentFilter.people.includes(f.id)?'on':''}" data-cat="people" data-val="${escAttr(f.id)}" onclick="toggleFilterVal('people','${f.id}',this)">${f.nameHe}</button>`).join('')}</div>
+    <div style="padding:14px 0 0;"><button class="btn btn-blue" onclick="closeSheet();renderDocsTab();">החל סינון</button></div>
+  `);
+}
+function toggleFilterVal(cat, val, btnEl){
+  const arr = currentFilter[cat];
+  const i = arr.indexOf(val);
+  if(i>=0) arr.splice(i,1); else arr.push(val);
+  // מעדכנים רק את הכפתור הספציפי, בלי לרנדר מחדש את כל ה-Sheet (מונע קפיצה/אנימציה מחדש)
+  if(btnEl) btnEl.classList.toggle('on', arr.includes(val));
+  else openFilterSheet(); // נפילה בטוחה אם נקרא בלי אלמנט
+}
+
+/*************************************************************
+ * טופס מסמך
+ *************************************************************/
+function openDocForm(docId){
+  editingDocId = docId;
+  const d = docId ? DB.documents.find(x=>x.id===docId) : null;
+  pendingImageBase64 = null; pendingImageMime = null; pendingImageDelete = false;
+  const countryOptions = DB.countries.length ?
+    `<select id="docCountry">${['', ...DB.countries].map(c=>`<option ${d&&d.country===c?'selected':''}>${c}</option>`).join('')}<option value="__other__">אחר...</option></select>`
+    : `<input type="text" id="docCountry" value="${d?d.country||'':''}">`;
+  openSheet(`
+    <div class="sheet-header"><h2>${d?'עריכת מסמך':'מסמך חדש'}</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+
+    <div class="form-section-title">פרטי מסמך</div>
+    <div class="form-card">
+      <div class="form-row"><span class="frl">שייך ל</span><select id="docFamily">${DB.family.map(f=>`<option value="${f.id}" ${d&&d.familyId===f.id?'selected':''}>${f.nameHe}</option>`).join('')}</select></div>
+      <div class="form-row"><span class="frl">סוג מסמך</span><select id="docType">${DOC_TYPES.map(t=>`<option value="${t.id}" ${d&&d.type===t.id?'selected':''}>${t.label}</option>`).join('')}</select></div>
+      <div class="form-row"><span class="frl">מספר מסמך</span><input type="text" id="docNumber" value="${d?d.docNumber||'':''}"></div>
+      <div class="form-row"><span class="frl">מדינה</span>${countryOptions}</div>
+    </div>
+
+    <div class="form-section-title">תאריכים</div>
+    <div class="form-card">
+      <div class="form-row"><span class="frl">הנפקה</span>${dateFieldHTML('docIssue', d?d.issueDate:'')}</div>
+      <div class="form-row"><span class="frl">תפוגה</span>${dateFieldHTML('docExpiry', d?d.expiryDate:'')}</div>
+    </div>
+
+    <div class="form-section-title">תמונת מסמך</div>
+    <div class="form-card">
+      <div class="form-row"><input type="file" id="docImage" accept="image/*"></div>
+      ${d&&d.hasImage?`<div class="form-row"><span style="font-size:12.5px;color:var(--label3);">📎 יש תמונה שמורה (מוצפנת)</span></div><div class="form-row"><button type="button" style="background:none;border:none;color:var(--red);font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;padding:4px 0;" id="deleteImgBtn" onclick="markImageForDeletion()">🗑 מחיקת התמונה</button></div>`:''}
+      <div id="imgPreviewWrap"></div>
+    </div>
+
+    <div class="form-section-title">תזכורות</div>
+    <div class="form-card">
+      <div class="reminder-chips">
+        ${REMINDER_OPTIONS.map(r=>`<input type="checkbox" class="chip-check" id="rem_${r.days}" ${d&&d.reminders&&d.reminders.includes(r.days)?'checked':''}><label for="rem_${r.days}" class="reminder-chip">${r.label}</label>`).join('')}
+      </div>
+    </div>
+
+    <div class="form-section-title">הערות</div>
+    <div class="form-card"><div class="form-block"><textarea id="docNotes" rows="3">${d?d.notes||'':''}</textarea></div></div>
+
+    <div style="height:6px;"></div>
+    <button class="btn btn-blue" onclick="saveDocForm()">שמירה</button>
+    ${d?`<button class="btn btn-gray" onclick="toggleArchiveDoc('${d.id}')">${d.archived?'שחזור מהארכיון':'העברה לארכיון'}</button>`:''}
+    ${d?`<button class="btn btn-red" onclick="deleteDocConfirm('${d.id}')">מחיקת מסמך</button>`:''}
+  `);
+  initDateField('docIssue'); initDateField('docExpiry');
+  document.getElementById('docCountry').addEventListener('change', e=>{
+    if(e.target.value==='__other__'){
+      e.target.outerHTML = `<input type="text" id="docCountry" placeholder="הקלד מדינה">`;
+    }
+  });
+  document.getElementById('docImage').addEventListener('change', async e=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    document.getElementById('imgPreviewWrap').innerHTML = '<div style="font-size:13px;color:var(--label3);margin-top:6px;">מעבד תמונה...</div>';
+    try{
+      const resized = await resizeImageForUpload(file, 1400, 0.72);
+      pendingImageMime = 'image/jpeg';
+      pendingImageBase64 = resized.split(',')[1];
+      document.getElementById('imgPreviewWrap').innerHTML = `<img class="thumb-preview" src="${resized}">`;
+    }catch(err){
+      toast('לא ניתן היה לעבד את התמונה, נסו תמונה אחרת');
+      document.getElementById('imgPreviewWrap').innerHTML = '';
+    }
+  });
+}
+
+/* דחיסת תמונה בצד הלקוח לפני הצפנה - תמונת מצלמה גולמית יכולה לשקול 10MB+
+   ולגרום לקריסת זיכרון בדפדפן הנייד. מצמצמים למקסימום 1400px ודוחסים ל-JPEG */
+function markImageForDeletion(){
+  pendingImageDelete = true;
+  pendingImageBase64 = null;
+  document.getElementById('imgPreviewWrap').innerHTML = '<div style="font-size:13px;color:var(--red);margin-top:6px;">🗑 התמונה תימחק כשתשמרו את המסמך</div>';
+  const btn = document.getElementById('deleteImgBtn');
+  if(btn) btn.remove();
+}
+
+async function resizeImageForUpload(file, maxDim, quality){
+  // שיטה בטוחה לזיכרון: createImageBitmap עם resize מבצע את הקטנת התמונה
+  // בתוך הדפדפן/החומרה עצמה, בלי לטעון את התמונה המקורית המלאה (יכולה
+  // להיות 15-50MB ממצלמת אייפון מודרנית) לזיכרון JavaScript כמחרוזת/בסיס64.
+  // זו הייתה הסיבה לקריסות/רענון פתאומי במובייל עם תמונות כבדות.
+  if(window.createImageBitmap){
+    try{
+      let probe = await createImageBitmap(file);
+      let w = probe.width, h = probe.height;
+      probe.close();
+      if(w > maxDim || h > maxDim){
+        if(w > h){ h = Math.round(h*maxDim/w); w = maxDim; }
+        else { w = Math.round(w*maxDim/h); h = maxDim; }
+      }
+      const bitmap = await createImageBitmap(file, { resizeWidth: w, resizeHeight: h, resizeQuality: 'medium' });
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bitmap, 0, 0, w, h);
+      bitmap.close();
+      return canvas.toDataURL('image/jpeg', quality);
+    }catch(e){
+      logAppError('resizeImageForUpload:bitmap', e && e.message ? e.message : String(e));
+      // נופל לשיטה הישנה למקרה נדיר של דפדפן ישן שלא תומך
+    }
+  }
+  return resizeImageForUploadLegacy(file, maxDim, quality);
+}
+function resizeImageForUploadLegacy(file, maxDim, quality){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = ()=>{ img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w > maxDim || h > maxDim){
+          if(w > h){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function saveDocForm(){
+  if(window._savingDoc) return;
+  window._savingDoc = true;
+  try{
+  const familyId = document.getElementById('docFamily').value;
+  if(!familyId){ toast('יש להוסיף קודם בן משפחה'); window._savingDoc=false; return; }
+  const reminders = REMINDER_OPTIONS.filter(r=>document.getElementById('rem_'+r.days).checked).map(r=>r.days);
+  let doc = editingDocId ? DB.documents.find(x=>x.id===editingDocId) : { id: 'd_'+Date.now()+'_'+Math.random().toString(36).slice(2,8), archived:false };
+  doc.familyId = familyId;
+  doc.type = document.getElementById('docType').value;
+  doc.docNumber = document.getElementById('docNumber').value;
+  doc.country = document.getElementById('docCountry').value;
+  doc.issueDate = getDateFieldISO('docIssue');
+  doc.expiryDate = getDateFieldISO('docExpiry');
+  doc.notes = document.getElementById('docNotes').value;
+  doc.reminders = reminders;
+  doc.sentDays = doc.sentDays || [];
+
+  if(!DB.countries.includes(doc.country) && doc.country) DB.countries.push(doc.country);
+  if(!editingDocId) DB.documents.push(doc);
+
+  // עדכון מיידי של המסך - לא מחכים לשרת כדי שהאפליקציה תרגיש מהירה
+  closeSheet(); renderDocsTab();
+  toast('שומר...');
+
+  try{
+    if(pendingImageDelete && doc.imageFileId){
+      try{ await gasCall('deleteEncryptedImage', doc.imageFileId); }
+      catch(delErr){ logAppError('deleteEncryptedImage', delErr && delErr.message ? delErr.message : String(delErr)); }
+      doc.imageFileId = null; doc.imageMime = null; doc.hasImage = false;
+    }
+    if(pendingImageBase64){
+      const encImg = await aesEncryptText(MASTER_KEY, pendingImageBase64);
+      let res;
+      try{
+        res = await gasCall('saveEncryptedImage', doc.imageFileId||null, encImg);
+      }catch(imgErr){
+        // ניסיון שני - תמונות רגישות יותר לרשת לא יציבה (במיוחד מובייל)
+        logAppError('saveEncryptedImage:retry', imgErr && imgErr.message ? imgErr.message : String(imgErr));
+        res = await gasCall('saveEncryptedImage', doc.imageFileId||null, encImg);
+      }
+      doc.imageFileId = res.fileId;
+      doc.imageMime = pendingImageMime;
+      doc.hasImage = true;
+    }
+    await persistDB();
+    toast('נשמר בהצלחה ✓');
+    if(!document.getElementById('tab-docs').classList.contains('hidden')) renderDocsTab();
+  }catch(e){
+    logAppError('saveDocForm', e && e.message ? e.message : String(e));
+    if(!e || e.message!=='conflict') toast('שגיאה בשמירה: ' + (e && e.message ? e.message : 'בדקו חיבור לאינטרנט') + ' — פרטים ביומן שגיאות בהגדרות');
+  }
+  }finally{ window._savingDoc = false; }
+}
+
+function toggleArchiveDoc(id){
+  const d = DB.documents.find(x=>x.id===id);
+  d.archived = !d.archived;
+  closeSheet(); renderDocsTab(); toast(d.archived?'הועבר לארכיון':'שוחזר מהארכיון');
+  persistDB().catch(e=>{ if(!e || e.message!=='conflict') toast('שגיאה בשמירה'); });
+}
+async function deleteDocConfirm(id){
+  if(!confirm('למחוק את המסמך לצמיתות?')) return;
+  const d = DB.documents.find(x=>x.id===id);
+  if(d.imageFileId){
+    try{ await gasCall('deleteEncryptedImage', d.imageFileId); }
+    catch(e){ console.error('image delete failed', e); }
+  }
+  DB.documents = DB.documents.filter(x=>x.id!==id);
+  closeSheet(); renderDocsTab(); toast('נמחק');
+  persistDB().catch(e=>{ if(!e || e.message!=='conflict') toast('שגיאה בשמירה'); });
+}
+
+async function openDocDetail(id){
+  const d = DB.documents.find(x=>x.id===id);
+  const fam = DB.family.find(f=>f.id===d.familyId);
+  const meta = docTypeMeta(d.type);
+  const st = statusOf(d);
+  let imgHtml = '';
+  if(d.hasImage && d.imageFileId){
+    imgHtml = `<button type="button" class="btn btn-gray" style="margin:0 0 10px;" onclick="loadDocDetailImage('${d.id}')">📷 הצג תמונת מסמך</button>`;
+  }
+  const rows = [
+    ['שם', fam?fam.nameHe:''],
+    ['שם באנגלית', fam?fam.nameEn:''],
+    ['תאריך לידה', fam&&fam.birthDate?formatDDMMYYYY(fam.birthDate):''],
+    ['מספר מסמך', d.docNumber],
+    ['מדינה', d.country],
+    ['תאריך הנפקה', formatDDMMYYYY(d.issueDate)],
+    ['תאריך תפוגה', formatDDMMYYYY(d.expiryDate)],
+    ['הערות', d.notes]
+  ].filter(r=>r[1]);
+  const allText = [['שם', fam?fam.nameHe:''],['סוג מסמך', meta.label],...rows.slice(1)].filter(r=>r[1]).map(r=>r[0]+': '+r[1]).join('\n');
+  const subtitle = [fam?fam.nameHe:'', d.country].filter(Boolean).join(' · ');
+  const rowsHtml = rows.map(r=>`
+    <div class="d-row">
+      <div class="d-lbl">${r[0]}</div>
+      <div class="d-val"><span class="d-val-inner">${r[1]}</span></div>
+      <button class="copy-pill" data-copy="${escAttr(r[1])}" onclick="copyPillClick(this)">העתק</button>
+    </div>`).join('');
+  const remLabels = REMINDER_OPTIONS.filter(r=>d.reminders&&d.reminders.includes(r.days)).map(r=>r.label);
+  const remText = remLabels.length ? remLabels.join(' · ') : 'אין תזכורות מוגדרות';
+  openSheet(`
+    <div class="sheet-header"><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+    <div style="text-align:center;">
+      <div style="width:44px;height:44px;border-radius:12px;background:${ICON_COLORS[d.type]||ICON_COLORS.other}1E;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 10px;">${ICON_EMOJI[d.type]||ICON_EMOJI.other}</div>
+      <div style="font-size:22px;font-weight:700;color:var(--label);">${meta.label}</div>
+      ${subtitle?`<div style="font-size:13.5px;color:var(--label3);margin-top:2px;">${subtitle}</div>`:''}
+      <div style="display:inline-block;margin-top:10px;padding:6px 16px;border-radius:20px;background:var(--fill);color:var(--label2);font-size:13px;font-weight:600;">${daysLabel(daysUntil(d.expiryDate))}</div>
+    </div>
+    <div class="form-card" style="margin-top:18px;padding:2px 14px;">${rowsHtml}</div>
+    <div id="docDetailImg" style="margin-top:12px;">${imgHtml}</div>
+    <button data-copy="${escAttr(allText)}" onclick="copyAllClick(this)" class="btn btn-blue" style="margin-top:2px;">📋 העתק הכל</button>
+    <div style="text-align:center;font-size:12.5px;color:var(--label3);margin:2px 0 14px;">🔔 תזכורות: ${remText}</div>
+    <button class="btn btn-gray" onclick="openDocForm('${d.id}')">✏️ עריכה</button>
+    <button class="btn btn-gray" onclick="toggleArchiveDoc('${d.id}')">${d.archived?'📤 שחזור מהארכיון':'🗄️ העברה לארכיון'}</button>
+    <button style="display:block;width:100%;background:none;border:none;color:var(--red);font-size:14px;font-weight:600;font-family:var(--font);cursor:pointer;padding:8px;margin-top:2px;" onclick="deleteDocConfirm('${d.id}')">מחיקת מסמך</button>
+  `);
+}
+function copyPillClick(btn){
+  const text = btn.getAttribute('data-copy');
+  copyText(text, ()=>{
+    const orig = btn.textContent;
+    btn.innerHTML = '<span>✓</span><span>הועתק</span>';
+    btn.classList.add('copied');
+    setTimeout(()=>{ btn.textContent = orig; btn.classList.remove('copied'); }, 1800);
+  });
+}
+function copyAllClick(btn){
+  const text = btn.getAttribute('data-copy');
+  copyText(text, ()=>{
+    const orig = btn.textContent;
+    btn.textContent = '✓ הועתק';
+    setTimeout(()=>{ btn.textContent = orig; }, 1800);
+  });
+}
+function openImageGallery(){
+  const withImages = DB.documents.filter(d=>d.hasImage && d.imageFileId && !d.archived);
+  if(!withImages.length){
+    openSheet(`<div class="sheet-header"><h2>כל תמונות המסמכים</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+      <div class="empty-state">אין עדיין מסמכים עם תמונה מצורפת.</div>`);
+    return;
+  }
+  // קיבוץ לפי שם בן משפחה
+  const byPerson = {};
+  withImages.forEach(d=>{
+    const fam = DB.family.find(f=>f.id===d.familyId);
+    const name = fam ? fam.nameHe : 'לא משויך';
+    if(!byPerson[name]) byPerson[name] = [];
+    byPerson[name].push(d);
+  });
+  const names = Object.keys(byPerson).sort((a,b)=>a.localeCompare(b,'he'));
+  const html = names.map(name=>{
+    const rows = byPerson[name].map(d=>{
+      const meta = docTypeMeta(d.type);
+      return `<div class="form-row" style="cursor:pointer;" onclick="openGalleryImage('${d.id}')">
+        <span class="frl" style="min-width:0;flex:1;text-align:right;">📷 תמונה ${meta.label}${d.country?' · '+d.country:''}</span>
+        <span class="chev">‹</span>
+      </div>`;
+    }).join('');
+    return `<div class="form-section-title">${name}</div><div class="form-card">${rows}</div>`;
+  }).join('');
+  openSheet(`<div class="sheet-header"><h2>כל תמונות המסמכים</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>${html}`);
+}
+async function openGalleryImage(id){
+  const d = DB.documents.find(x=>x.id===id);
+  if(!d) return;
+  const meta = docTypeMeta(d.type);
+  const fam = DB.family.find(f=>f.id===d.familyId);
+  openSheet(`<div class="sheet-header"><h2>${fam?fam.nameHe+' · ':''}${meta.label}</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+    <div id="galleryImgWrap"><div style="text-align:center;color:var(--label3);padding:20px 0;">טוען תמונה...</div></div>`);
+  try{
+    const encImg = await gasCall('loadEncryptedImage', d.imageFileId);
+    const b64img = await aesDecryptText(MASTER_KEY, encImg);
+    const el = document.getElementById('galleryImgWrap');
+    if(el) el.innerHTML = `<img class="thumb-preview" src="data:${d.imageMime||'image/jpeg'};base64,${b64img}">`;
+  }catch(e){
+    logAppError('openGalleryImage', e && e.message ? e.message : String(e));
+    const el = document.getElementById('galleryImgWrap');
+    if(el) el.innerHTML = '<div style="text-align:center;color:var(--red);padding:10px 0;font-size:13px;">שגיאה בטעינת התמונה</div>';
+  }
+}
+async function loadDocDetailImage(id){
+  const d = DB.documents.find(x=>x.id===id);
+  if(!d) return;
+  const imgEl = document.getElementById('docDetailImg');
+  if(imgEl) imgEl.innerHTML = '<div style="text-align:center;color:var(--label3);padding:10px 0;">טוען תמונה...</div>';
+  try{
+    const encImg = await gasCall('loadEncryptedImage', d.imageFileId);
+    const b64img = await aesDecryptText(MASTER_KEY, encImg);
+    const el = document.getElementById('docDetailImg');
+    if(el) el.innerHTML = `<img class="thumb-preview" src="data:${d.imageMime||'image/jpeg'};base64,${b64img}">`;
+  }catch(e){
+    logAppError('loadDocDetailImage', e && e.message ? e.message : String(e));
+    const el = document.getElementById('docDetailImg');
+    if(el) el.innerHTML = '<div style="text-align:center;color:var(--red);padding:10px 0;font-size:13px;">שגיאה בטעינת התמונה</div>';
+  }
+}
+function escAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/\n/g,'&#10;'); }
+function copyText(text, onSuccess){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>{ if(onSuccess) onSuccess(); else toast('הועתק ✓'); }).catch(()=>copyFallback(text, onSuccess));
+  } else { copyFallback(text, onSuccess); }
+}
+function copyFallback(text, onSuccess){
+  const ta = document.createElement('textarea'); ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{ document.execCommand('copy'); if(onSuccess) onSuccess(); else toast('הועתק ✓'); }catch(e){ toast('לא ניתן להעתיק'); }
+  ta.remove();
+}
+document.addEventListener('click', e=>{
+  if(e.target.classList && e.target.classList.contains('copy-btn')){
+    copyText(e.target.getAttribute('data-copy'));
+  }
+});
+
+/*************************************************************
+ * טאב משפחה
+ *************************************************************/
+function renderFamilyTab(){
+  const el = document.getElementById('famList');
+  if(!DB.family.length){ el.innerHTML = '<div class="empty-state">אין עדיין בני משפחה. הוסיפו באמצעות כפתור ה-+</div>'; return; }
+  el.innerHTML = DB.family.map(f=>{
+    const famDocs = DB.documents.filter(d=>d.familyId===f.id && !d.archived);
+    const count = famDocs.length;
+    const urgentCount = famDocs.filter(d=>statusOf(d)==='critical').length;
+    const initials = (f.nameHe||'?').trim().slice(0,2);
+    return `<div class="fam-card" onclick="openFamilyDetail('${f.id}')" style="position:relative;">
+      <div class="av">${initials}</div>
+      <div style="flex:1;"><div class="fam-name">${f.nameHe}</div><div class="fam-rel">${f.relation} · ${count} מסמכים</div></div>
+      <span class="chev">‹</span>
+      ${urgentCount>0?`<div style="position:absolute;left:14px;top:14px;background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:2px 7px;line-height:1.5;">${urgentCount} דחוף</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function openFamilyForm(famId){
+  editingFamId = famId;
+  const f = famId ? DB.family.find(x=>x.id===famId) : null;
+  const relations = DB.relationTypes && DB.relationTypes.length ? DB.relationTypes : DEFAULT_RELATIONS;
+  const defaultRelation = f ? f.relation : 'ילד/ה';
+  const relOptions = relations.includes(defaultRelation) ? relations : [defaultRelation, ...relations];
+  openSheet(`
+    <div class="sheet-header"><h2>${f?'עריכת בן משפחה':'בן משפחה חדש'}</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+    <div class="form-section-title">פרטים אישיים</div>
+    <div class="form-card">
+      <div class="form-row"><span class="frl">שם בעברית</span><input type="text" id="famNameHe" value="${f?f.nameHe:''}"></div>
+      <div class="form-row"><span class="frl">שם באנגלית</span><input type="text" id="famNameEn" value="${f?f.nameEn||'':''}"></div>
+      <div class="form-row"><span class="frl">תאריך לידה</span>${dateFieldHTML('famBirth', f?f.birthDate:'')}</div>
+      <div class="form-row"><span class="frl">קשר משפחתי</span><select id="famRelation">${relOptions.map(r=>`<option ${r===defaultRelation?'selected':''}>${r}</option>`).join('')}</select></div>
+    </div>
+    <div style="height:6px;"></div>
+    <button class="btn btn-blue" onclick="saveFamilyForm()">שמירה</button>
+    ${f?`<button class="btn btn-red" onclick="deleteFamilyConfirm('${f.id}')">מחיקת בן משפחה</button>`:''}
+  `);
+  initDateField('famBirth');
+}
+async function saveFamilyForm(){
+  if(window._savingFam) return;
+  window._savingFam = true;
+  const nameHe = document.getElementById('famNameHe').value.trim();
+  if(!nameHe){ toast('יש להזין שם'); window._savingFam=false; return; }
+  let f = editingFamId ? DB.family.find(x=>x.id===editingFamId) : { id: 'f_'+Date.now()+'_'+Math.random().toString(36).slice(2,8) };
+  f.nameHe = nameHe;
+  f.nameEn = document.getElementById('famNameEn').value.trim();
+  f.birthDate = getDateFieldISO('famBirth');
+  f.relation = document.getElementById('famRelation').value;
+  const isNew = !editingFamId;
+  if(isNew) DB.family.push(f);
+  closeSheet(); renderFamilyTab(); toast('נשמר בהצלחה');
+  persistDB().catch(e=>{ if(!e || e.message!=='conflict') toast('שגיאה בשמירה, בדקו חיבור לאינטרנט'); }).finally(()=>{ window._savingFam=false; });
+}
+async function deleteFamilyConfirm(id){
+  if(!confirm('מחיקת בן המשפחה תמחק גם את כל המסמכים שלו. להמשיך?')) return;
+  const docsToDelete = DB.documents.filter(d=>d.familyId===id);
+  await Promise.all(docsToDelete.map(d=>{
+    if(!d.imageFileId) return Promise.resolve();
+    return gasCall('deleteEncryptedImage', d.imageFileId).catch(e=>console.error('image delete failed', e));
+  }));
+  DB.documents = DB.documents.filter(d=>d.familyId!==id);
+  DB.family = DB.family.filter(f=>f.id!==id);
+  closeSheet(); renderFamilyTab(); toast('נמחק');
+  persistDB().catch(e=>{ if(!e || e.message!=='conflict') toast('שגיאה בשמירה'); });
+}
+function openFamilyDetail(id){
+  const f = DB.family.find(x=>x.id===id);
+  const docs = DB.documents.filter(d=>d.familyId===id && !d.archived);
+  openSheet(`
+    <div class="sheet-header"><h2>${f.nameHe}</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+    <div style="font-size:14px;color:var(--label3);margin-bottom:10px;">${f.relation} ${f.nameEn?'· '+f.nameEn:''} ${f.birthDate?'· נולד/ה '+formatDDMMYYYY(f.birthDate):''}</div>
+    <button class="btn btn-blue" onclick="closeSheet();openDocForm(null);setTimeout(()=>document.getElementById('docFamily').value='${id}',50);">➕ הוספת מסמך</button>
+    <button class="btn btn-gray" onclick="openFamilyForm('${id}')">✏️ עריכת פרטים</button>
+    <div style="margin-top:10px;">
+    ${docs.map(d=>{
+      const meta = docTypeMeta(d.type);
+      return `<div class="doc-card" onclick="closeSheet();openDocDetail('${d.id}')"><div class="doc-body">${docIconHtml(d.type, d.hasImage)}<div class="doc-info"><div class="doc-name">${meta.label}</div><div class="doc-type">${daysLabel(daysUntil(d.expiryDate))}</div></div></div></div>`;
+    }).join('') || '<div class="empty-state">אין מסמכים</div>'}
+    </div>
+  `);
+}
+
+/*************************************************************
+ * הגדרות
+ *************************************************************/
+async function renderSettingsTab(){
+  const email = await gasCall('getReminderEmail');
+  document.getElementById('reminderEmailInput').value = email || '';
+  renderRelationTypesSettings();
+  renderCountriesSettings();
+  renderBiometricRow();
+  renderErrorLogSettings();
+}
+async function renderBiometricRow(){
+  const el = document.getElementById('biometricRow');
+  const device = localGet('mdocs_device');
+  const enabled = !!(device && device.bio);
+  if(enabled){
+    el.innerHTML = `
+      <div style="width:100%;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <label style="font-size:14px;">Face ID / טביעת אצבע</label>
+          <button onclick="disableBiometric()" style="background:none;border:none;color:var(--red);font-weight:600;font-size:13px;">כיבוי</button>
+        </div>
+        <div style="font-size:12px;color:var(--green);margin-top:3px;">✅ מופעל במכשיר הזה</div>
+      </div>`;
+    return;
+  }
+  const supported = await biometricAvailable();
+  if(supported){
+    el.innerHTML = `
+      <div style="width:100%;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <label style="font-size:14px;">Face ID / טביעת אצבע</label>
+          <button onclick="doEnrollBiometric()" style="background:none;border:none;color:var(--blue);font-weight:600;font-size:13px;">הפעלה</button>
+        </div>
+        <div style="font-size:12px;color:var(--label3);margin-top:3px;line-height:1.5;">פתיחה עם Face ID/טביעת אצבע במקום PIN, במכשיר זה בלבד.</div>
+      </div>`;
+  } else {
+    el.innerHTML = `
+      <div style="width:100%;">
+        <label style="color:var(--label3);font-size:14px;">Face ID / טביעת אצבע</label>
+        <div style="font-size:12px;color:var(--label3);margin-top:3px;line-height:1.5;">
+          לא זוהה זיהוי ביומטרי נתמך במכשיר הזה כרגע. PIN הוא הפתרון הבטוח בכל מקרה.
+        </div>
+      </div>`;
+  }
+}
+function renderRelationTypesSettings(){
+  const el = document.getElementById('relationTypesGroup');
+  const rels = DB.relationTypes && DB.relationTypes.length ? DB.relationTypes : DEFAULT_RELATIONS;
+  el.innerHTML = `<div class="chip-tags">` + rels.map(r=>
+    `<div class="tag-chip">${r}${DEFAULT_RELATIONS.includes(r)?'':`<button onclick="removeRelationType('${r}')">✕</button>`}</div>`
+  ).join('') + `</div>`
+    + `<div class="settings-row"><input type="text" id="newRelationInput" placeholder="הוסף קשר חדש (למשל: בן/בת זוג)"><button id="addRelationBtn" onclick="addRelationType()" style="background:none;border:none;color:var(--blue);font-weight:600;font-size:14px;">הוסף</button></div>`;
+}
+async function addRelationType(){
+  const v = document.getElementById('newRelationInput').value.trim();
+  if(!v) return;
+  const btn = document.getElementById('addRelationBtn');
+  setBtnLoading(btn, 'מוסיף...');
+  DB.relationTypes = DB.relationTypes||DEFAULT_RELATIONS.slice();
+  if(!DB.relationTypes.includes(v)) DB.relationTypes.push(v);
+  await persistDB(); renderRelationTypesSettings();
+}
+async function removeRelationType(r){
+  DB.relationTypes = (DB.relationTypes||[]).filter(x=>x!==r);
+  await persistDB(); renderRelationTypesSettings();
+}
+function renderCountriesSettings(){
+  const el = document.getElementById('countriesGroup');
+  el.innerHTML = `<div class="chip-tags">` + DB.countries.map(c=>
+    `<div class="tag-chip">${c}<button onclick="removeCountry('${c}')">✕</button></div>`
+  ).join('') + `</div>`
+    + `<div class="settings-row"><input type="text" id="newCountryInput" placeholder="הוסף מדינה חדשה (למשל: ישראל)"><button id="addCountryBtn" onclick="addCountry()" style="background:none;border:none;color:var(--blue);font-weight:600;font-size:14px;">הוסף</button></div>`;
+}
+async function addCountry(){
+  const v = document.getElementById('newCountryInput').value.trim();
+  if(!v) return;
+  const btn = document.getElementById('addCountryBtn');
+  setBtnLoading(btn, 'מוסיף...');
+  if(!DB.countries.includes(v)) DB.countries.push(v);
+  await persistDB(); renderCountriesSettings();
+}
+async function removeCountry(c){
+  DB.countries = DB.countries.filter(x=>x!==c);
+  await persistDB(); renderCountriesSettings();
+}
+async function saveReminderEmail(){
+  const v = document.getElementById('reminderEmailInput').value.trim();
+  await gasCall('setReminderEmail', v);
+  await gasCall('ensureDailyTrigger');
+  toast('הכתובת נשמרה');
+}
+async function sendStatusNowClick(){
+  toast('שולח מייל...');
+  const res = await gasCall('sendStatusNow');
+  toast(res.ok ? 'המייל נשלח!' : ('שגיאה: '+res.error));
+}
+function openChangePin(){
+  openSheet(`
+    <div class="sheet-header"><h2>שינוי קוד PIN</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+    <div class="field"><label class="field-label">PIN חדש (6-8 ספרות)</label><input type="password" id="newPinInput" inputmode="numeric"></div>
+    <button class="btn btn-blue" onclick="doChangePin()">שמירה</button>
+  `);
+}
+async function doChangePin(){
+  const pin = document.getElementById('newPinInput').value;
+  if(!/^[0-9]{6,8}$/.test(pin)){ toast('PIN חייב להיות 6-8 ספרות (מינימום 6, לביטחון)'); return; }
+  const device = localGet('mdocs_device');
+  const pinSalt = b64(randBytes(16));
+  const wrapped = await wrapMasterKeyWithPin(MASTER_KEY, pin, pinSalt);
+  localSet('mdocs_device', {wrapped, pinSalt, masterSalt: device.masterSalt, bio: device.bio});
+  closeSheet(); toast('קוד PIN עודכן');
+}
+async function exportBackupClick(){
+  const json = await gasCall('exportBackup');
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'mishpacha-docs-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  toast('קובץ הגיבוי הורד (עדיין מוצפן, בטוח לשמור בכל מקום)');
+}
+document.addEventListener('change', async e=>{
+  if(e.target.id==='importFile'){
+    const file = e.target.files[0];
+    if(!file) return;
+    let text;
+    try{ text = await file.text(); }
+    catch(err){ toast('לא ניתן לקרוא את הקובץ'); e.target.value=''; return; }
+
+    // ולידציה: ננסה לפענח את הגיבוי עם המפתח הנוכחי (בזיכרון) לפני שליחה לשרת.
+    // אם הגיבוי הוצפן עם קוד ארוך אחר, הפענוח ייכשל כאן - ונעצור, כדי לא "לנעול" את האפליקציה
+    let backupObj, wrapper;
+    try{
+      backupObj = JSON.parse(text);
+      wrapper = JSON.parse(backupObj.data);
+      await aesDecryptJSON(MASTER_KEY, wrapper.payload); // רק בדיקה - הערך לא בשימוש
+    }catch(err){
+      toast('קובץ הגיבוי הוצפן עם קוד ארוך שונה מזה שבשימוש כרגע - לא ניתן לשחזר. יש להתחבר קודם עם הקוד הארוך שבו הוצפן הגיבוי הזה.');
+      e.target.value=''; return;
+    }
+
+    if(!confirm('שחזור מגיבוי ידרוס את הנתונים הנוכחיים בשרת. להמשיך?')) { e.target.value=''; return; }
+    try{
+      await gasCall('importBackup', text);
+      await loadDB();
+      renderAll();
+      toast('השחזור הושלם ✓');
+    }catch(err){
+      toast('שגיאה בשחזור - נסו שוב');
+    }
+    e.target.value='';
+  }
+});
+
+/*************************************************************
+ * Sheet / Toast utilities
+ *************************************************************/
+function openSheet(html){
+  document.getElementById('sheetRoot').innerHTML = `<div class="sheet-overlay" onclick="if(event.target===this)closeSheet()"><div class="sheet">${html}</div></div>`;
+}
+function closeSheet(){ document.getElementById('sheetRoot').innerHTML=''; }
+function toast(msg){
+  const t = document.createElement('div'); t.className='toast'; t.textContent = msg;
+  document.getElementById('toastRoot').appendChild(t);
+  setTimeout(()=>t.remove(), 2500);
+}
+
+/*************************************************************
+ * Safari ITP / Storage Access API
+ * ------------------------------------------------------------
+ * Google Apps Script מגיש את האפליקציה בתוך iframe (בתוך
+ * script.google.com / googleusercontent.com). ITP של ספארי
+ * חוסם/מוחק localStorage בהקשר כזה, ולכן המכשיר "שוכח" את
+ * המכשיר המאושר. מנסים לבקש הרשאה מפורשת עם ז'סטה של המשתמש.
+ *************************************************************/
+async function ensureStorageAccessThenInit(){
+  if(document.hasStorageAccess && document.requestStorageAccess){
+    try{
+      const has = await document.hasStorageAccess();
+      if(!has){ showStorageAccessPrompt(); return; }
+    }catch(e){}
+  }
+  initLockScreen();
+}
+function showStorageAccessPrompt(){
+  const el = document.getElementById('lock-screen');
+  el.innerHTML = `
+    <div class="lock-title">כמעט שם 👋</div>
+    <div class="lock-sub" style="margin-bottom:20px;max-width:300px;">כדי שהמכשיר הזה "יזכר" (ולא יבקש בכל פעם את הקוד הארוך), Safari דורש אישור חד-פעמי לשמירת מידע באפליקציה. לחצו על הכפתור ואשרו בחלון שייפתח.</div>
+    <button class="btn btn-blue" style="max-width:300px;" onclick="grantStorageAccess()">אפשרו שמירת נתונים במכשיר</button>
+    <button class="btn btn-gray" style="max-width:300px;" onclick="initLockScreen()">דלגו (יתכן ויבקש קוד שוב בפעם הבאה)</button>
+  `;
+}
+async function grantStorageAccess(){
+  try{ await document.requestStorageAccess(); }catch(e){ /* נדחה - ממשיכים בכל זאת */ }
+  initLockScreen();
+}
+
+/*************************************************************
+ * הגדרת חיבור אישית (רק בפעם הראשונה בכל מכשיר/דפדפן)
+ * כל משתמש מדביק כאן את כתובת ה-Web App הפרטית שלו (מה-Apps Script
+ * שהוא פרס בחשבון הגוגל דרייב שלו). הכתובת נשמרת ב-localStorage
+ * של המכשיר הזה בלבד, כך שקובץ ה-index.html נשאר זהה לכולם
+ * וכל אחד מתחבר לנתונים הפרטיים שלו.
+ *************************************************************/
+function showServerSetupScreen(prefillError){
+  const el = document.getElementById('lock-screen');
+  el.innerHTML = `
+    <div class="lock-title">חיבור ראשוני 🔗</div>
+    <div class="lock-sub" style="margin-bottom:16px;max-width:320px;">הדביקו כאן את כתובת ה-Web App הפרטית שקיבלתם (מתחילה ב-https://script.google.com/macros/...). הכתובת נשמרת רק במכשיר הזה.</div>
+    ${prefillError ? '<div style="color:#FF3B30;font-size:13px;margin-bottom:10px;max-width:300px;">'+prefillError+'</div>' : ''}
+    <input id="setupUrlInput" type="text" placeholder="https://script.google.com/macros/s/..." style="width:100%;max-width:320px;padding:12px;border-radius:10px;border:1px solid #ccc;direction:ltr;text-align:left;font-size:13px;margin-bottom:14px;">
+    <button class="btn btn-blue" style="max-width:320px;" onclick="saveServerSetup()">שמירה והמשך</button>
+  `;
+}
+async function saveServerSetup(){
+  const input = document.getElementById('setupUrlInput');
+  const url = (input.value || '').trim();
+  if(!url.startsWith('https://script.google.com/')){
+    showServerSetupScreen('הכתובת לא נראית תקינה - היא צריכה להתחיל ב-https://script.google.com/macros/');
+    return;
+  }
+  localStorage.setItem(CONFIG_KEY, url);
+  try{
+    const r = await fetch(url);
+    await r.text();
+  }catch(e){
+    showServerSetupScreen('לא הצלחנו ליצור חיבור. בדקו את הכתובת ואת החיבור לאינטרנט ונסו שוב.');
+    return;
+  }
+  ensureStorageAccessThenInit();
+}
+function changeServerConnection(){
+  const current = getAppsScriptUrl();
+  const url = prompt('כתובת ה-Web App הפרטית שלכם:', current || '');
+  if(url === null) return;
+  const trimmed = url.trim();
+  if(!trimmed.startsWith('https://script.google.com/')){
+    toast('הכתובת לא נראית תקינה');
+    return;
+  }
+  localStorage.setItem(CONFIG_KEY, trimmed);
+  toast('הכתובת נשמרה ✓');
+}
+function checkServerConfigThenInit(){
+  if(!getAppsScriptUrl()){ showServerSetupScreen(); return; }
+  ensureStorageAccessThenInit();
+}
+
+/*************************************************************
+ * התחלה
+ *************************************************************/
+checkServerConfigThenInit();
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
