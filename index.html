@@ -405,7 +405,11 @@ let DB = null; // { family:[], documents:[], countries:[], relationTypes:[], sal
 let lastActivity = Date.now();
 const IDLE_LIMIT_MS = 3*60*1000; // 3 דקות בדיוק כמבוקש
 let currentFilter = {status:'all', types:[], countries:[], people:[], archive:false};
-let editingDocId = null, editingFamId = null, pendingImageBase64 = null, pendingImageMime=null, pendingImageDelete=false;
+let editingDocId = null, editingFamId = null;
+let pendingImage = {
+  1: { base64: null, mime: null, del: false },
+  2: { base64: null, mime: null, del: false }
+};
 
 const ICON_EMOJI = { passport:'📘', id:'🪪', license:'🚗', visa:'🛂', other:'📄' };
 const ICON_COLORS = {
@@ -587,8 +591,9 @@ function renderPinEntry(el, deviceInfo){
     showBusy();
     try{
       await unlockWithBiometric(deviceInfo.bio);
-      await loadDB();
+      const usedCache = await loadDBFast();
       unlockApp();
+      if(usedCache) syncDBInBackground();
     }catch(e){
       document.getElementById('pinSub').textContent = 'Face ID לא אושר, אפשר להזין PIN';
       document.getElementById('pinSub').style.color='var(--red)';
@@ -614,8 +619,9 @@ function renderPinEntry(el, deviceInfo){
       showBusy();
       try{
         MASTER_KEY = await unwrapMasterKeyWithPin(deviceInfo.wrapped, pinBuf, deviceInfo.pinSalt);
-        await loadDB();
+        const usedCache = await loadDBFast();
         unlockApp();
+        if(usedCache) syncDBInBackground();
       }catch(e){
         if(pinBuf.length===8){
           document.getElementById('pinSub').textContent = 'קוד שגוי, נסו שוב';
@@ -665,6 +671,8 @@ async function doDeviceRecovery(){
     const testKey = await deriveKey(lc, wrapper.salt, 210000);
     DB = await aesDecryptJSON(testKey, wrapper.payload); // אם הקוד שגוי - תיזרק שגיאה כאן
     MASTER_KEY = testKey;
+    DB._serverTimestamp = resp.updated;
+    cacheEncryptedWrapper(resp.payload, resp.updated);
     const pinSalt = b64(randBytes(16));
     const wrapped = await wrapMasterKeyWithPin(MASTER_KEY, pin, pinSalt);
     localSet('mdocs_device', {wrapped, pinSalt, masterSalt: wrapper.salt});
@@ -799,8 +807,9 @@ function renderErrorLogSettings(){
 
 async function persistDB(){
   const wrapper = { salt: DB.salt, payload: await aesEncryptJSON(MASTER_KEY, DB) };
+  const wrapperStr = JSON.stringify(wrapper);
   const idx = buildExpiryIndex();
-  const res = await gasCall('saveEncryptedDataAndIndex', JSON.stringify(wrapper), idx, DB._serverTimestamp || null);
+  const res = await gasCall('saveEncryptedDataAndIndex', wrapperStr, idx, DB._serverTimestamp || null);
   if(res && res.conflict){
     alert('הנתונים עודכנו בינתיים ממכשיר אחר. כדי לא לדרוס שינויים, האפליקציה תטען מחדש את הנתונים העדכניים ביותר. השינוי האחרון שביצעת כאן לא יישמר - יש לבצע אותו שוב.');
     await loadDB();
@@ -810,6 +819,7 @@ async function persistDB(){
     throw new Error('conflict');
   }
   if(res && res.updated) DB._serverTimestamp = res.updated;
+  cacheEncryptedWrapper(wrapperStr, DB._serverTimestamp || null);
 }
 function buildExpiryIndex(){
   return DB.documents.filter(d=>!d.archived && d.expiryDate).map(d=>{
@@ -833,6 +843,50 @@ async function loadDB(){
   DB.relationTypes = DB.relationTypes && DB.relationTypes.length ? DB.relationTypes : DEFAULT_RELATIONS.slice();
   DB.salt = wrapper.salt;
   DB._serverTimestamp = resp.updated;
+  cacheEncryptedWrapper(resp.payload, resp.updated);
+}
+
+/*************************************************************
+ * מטמון מקומי (cache) לטעינה מיידית
+ * שומרים במכשיר רק את הגרסה המוצפנת בדיוק כפי שהיא מגיעה מהשרת
+ * (אותה הצפנה, אותו מפתח) - כדי שהאפליקציה תיפתח מיד בלי להמתין
+ * לרשת, ובד בבד תמיד מסנכרנת ברקע מול השרת כדי להביא עדכונים
+ * ממכשירים אחרים ולוודא שהנתונים לא נשארים "תקועים" בגרסה ישנה.
+ *************************************************************/
+function cacheEncryptedWrapper(payloadStr, updated){
+  try{ localSet('mdocs_cache', {payload: payloadStr, updated: updated}); }catch(e){}
+}
+async function loadDBFast(){
+  const cached = localGet('mdocs_cache');
+  if(cached && cached.payload){
+    try{
+      const wrapper = JSON.parse(cached.payload);
+      DB = await aesDecryptJSON(MASTER_KEY, wrapper.payload);
+      DB.relationTypes = DB.relationTypes && DB.relationTypes.length ? DB.relationTypes : DEFAULT_RELATIONS.slice();
+      DB.salt = wrapper.salt;
+      DB._serverTimestamp = cached.updated;
+      return true; // usedCache
+    }catch(e){ /* מטמון פגום/לא תואם - נטען מהשרת */ }
+  }
+  await loadDB();
+  return false;
+}
+async function syncDBInBackground(){
+  try{
+    const resp = await gasCall('loadEncryptedData');
+    if(!resp.exists) return;
+    if(DB && DB._serverTimestamp && resp.updated === DB._serverTimestamp) return; // אין שינוי
+    const wrapper = JSON.parse(resp.payload);
+    const fresh = await aesDecryptJSON(MASTER_KEY, wrapper.payload);
+    fresh.relationTypes = fresh.relationTypes && fresh.relationTypes.length ? fresh.relationTypes : DEFAULT_RELATIONS.slice();
+    fresh.salt = wrapper.salt;
+    fresh._serverTimestamp = resp.updated;
+    DB = fresh;
+    cacheEncryptedWrapper(resp.payload, resp.updated);
+    renderAll();
+    if(!document.getElementById('tab-settings').classList.contains('hidden')) renderSettingsTab();
+    if(!document.getElementById('tab-family').classList.contains('hidden')) renderFamilyTab();
+  }catch(e){ /* אין רשת כרגע - לא נורא, ממשיכים עם המטמון */ }
 }
 
 async function persistExpiryIndex(){
@@ -983,7 +1037,7 @@ function renderDocsTab(){
     return `<div class="doc-card" onclick="openDocDetail('${d.id}')">
       <div class="strip ${stripClass}"></div>
       <div class="doc-body">
-        ${docIconHtml(d.type, d.hasImage)}
+        ${docIconHtml(d.type, d.hasImage||d.hasImage2)}
         <div class="doc-info">
           <div class="doc-name">${fam?fam.nameHe:'?'} ${d.archived?'· בארכיון':''}</div>
           <div class="doc-type">${meta.label}${d.country?' · '+d.country:''}</div>
@@ -1012,7 +1066,7 @@ function renderArchiveList(){
     const fam = DB.family.find(f=>f.id===d.familyId); const meta = docTypeMeta(d.type);
     return `<div class="doc-card" onclick="closeSheet();openDocDetail('${d.id}')">
       <div class="strip expired"></div>
-      <div class="doc-body">${docIconHtml(d.type, d.hasImage)}
+      <div class="doc-body">${docIconHtml(d.type, d.hasImage||d.hasImage2)}
       <div class="doc-info"><div class="doc-name">${fam?fam.nameHe:'?'}</div><div class="doc-type">${meta.label}${d.expiryDate?' · '+formatDDMMYYYY(d.expiryDate):''}</div></div></div></div>`;
   }).join('');
 }
@@ -1052,7 +1106,7 @@ function toggleFilterVal(cat, val, btnEl){
 function openDocForm(docId){
   editingDocId = docId;
   const d = docId ? DB.documents.find(x=>x.id===docId) : null;
-  pendingImageBase64 = null; pendingImageMime = null; pendingImageDelete = false;
+  pendingImage = { 1:{base64:null,mime:null,del:false}, 2:{base64:null,mime:null,del:false} };
   const countryOptions = DB.countries.length ?
     `<select id="docCountry">${['', ...DB.countries].map(c=>`<option ${d&&d.country===c?'selected':''}>${c}</option>`).join('')}<option value="__other__">אחר...</option></select>`
     : `<input type="text" id="docCountry" value="${d?d.country||'':''}">`;
@@ -1073,11 +1127,17 @@ function openDocForm(docId){
       <div class="form-row"><span class="frl">תפוגה</span>${dateFieldHTML('docExpiry', d?d.expiryDate:'')}</div>
     </div>
 
-    <div class="form-section-title">תמונת מסמך</div>
+    <div class="form-section-title">תמונות מסמך (עד שני צדדים)</div>
     <div class="form-card">
-      <div class="form-row"><input type="file" id="docImage" accept="image/*"></div>
-      ${d&&d.hasImage?`<div class="form-row"><span style="font-size:12.5px;color:var(--label3);">📎 יש תמונה שמורה (מוצפנת)</span></div><div class="form-row"><button type="button" style="background:none;border:none;color:var(--red);font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;padding:4px 0;" id="deleteImgBtn" onclick="markImageForDeletion()">🗑 מחיקת התמונה</button></div>`:''}
-      <div id="imgPreviewWrap"></div>
+      <div style="font-size:12.5px;color:var(--label3);margin:4px 0 8px;">צד קדמי</div>
+      <div class="form-row"><input type="file" id="docImage1" accept="image/*"></div>
+      ${d&&d.hasImage?`<div class="form-row"><span style="font-size:12.5px;color:var(--label3);">📎 יש תמונה שמורה (מוצפנת)</span></div><div class="form-row"><button type="button" style="background:none;border:none;color:var(--red);font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;padding:4px 0;" id="deleteImgBtn1" onclick="markImageForDeletion(1)">🗑 מחיקת התמונה</button></div>`:''}
+      <div id="imgPreviewWrap1"></div>
+      <div style="height:10px;border-top:1px solid var(--sep,#e5e5ea);margin:10px 0 8px;"></div>
+      <div style="font-size:12.5px;color:var(--label3);margin:4px 0 8px;">צד אחורי (אופציונלי)</div>
+      <div class="form-row"><input type="file" id="docImage2" accept="image/*"></div>
+      ${d&&d.hasImage2?`<div class="form-row"><span style="font-size:12.5px;color:var(--label3);">📎 יש תמונה שמורה (מוצפנת)</span></div><div class="form-row"><button type="button" style="background:none;border:none;color:var(--red);font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;padding:4px 0;" id="deleteImgBtn2" onclick="markImageForDeletion(2)">🗑 מחיקת התמונה</button></div>`:''}
+      <div id="imgPreviewWrap2"></div>
     </div>
 
     <div class="form-section-title">תזכורות</div>
@@ -1101,29 +1161,33 @@ function openDocForm(docId){
       e.target.outerHTML = `<input type="text" id="docCountry" placeholder="הקלד מדינה">`;
     }
   });
-  document.getElementById('docImage').addEventListener('change', async e=>{
-    const file = e.target.files[0];
-    if(!file) return;
-    document.getElementById('imgPreviewWrap').innerHTML = '<div style="font-size:13px;color:var(--label3);margin-top:6px;">מעבד תמונה...</div>';
-    try{
-      const resized = await resizeImageForUpload(file, 1400, 0.72);
-      pendingImageMime = 'image/jpeg';
-      pendingImageBase64 = resized.split(',')[1];
-      document.getElementById('imgPreviewWrap').innerHTML = `<img class="thumb-preview" src="${resized}">`;
-    }catch(err){
-      toast('לא ניתן היה לעבד את התמונה, נסו תמונה אחרת');
-      document.getElementById('imgPreviewWrap').innerHTML = '';
-    }
+  [1,2].forEach(side=>{
+    document.getElementById('docImage'+side).addEventListener('change', async e=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      const wrap = document.getElementById('imgPreviewWrap'+side);
+      wrap.innerHTML = '<div style="font-size:13px;color:var(--label3);margin-top:6px;">מעבד תמונה...</div>';
+      try{
+        const resized = await resizeImageForUpload(file, 1400, 0.72);
+        pendingImage[side].mime = 'image/jpeg';
+        pendingImage[side].base64 = resized.split(',')[1];
+        pendingImage[side].del = false;
+        wrap.innerHTML = `<img class="thumb-preview" src="${resized}">`;
+      }catch(err){
+        toast('לא ניתן היה לעבד את התמונה, נסו תמונה אחרת');
+        wrap.innerHTML = '';
+      }
+    });
   });
 }
 
 /* דחיסת תמונה בצד הלקוח לפני הצפנה - תמונת מצלמה גולמית יכולה לשקול 10MB+
    ולגרום לקריסת זיכרון בדפדפן הנייד. מצמצמים למקסימום 1400px ודוחסים ל-JPEG */
-function markImageForDeletion(){
-  pendingImageDelete = true;
-  pendingImageBase64 = null;
-  document.getElementById('imgPreviewWrap').innerHTML = '<div style="font-size:13px;color:var(--red);margin-top:6px;">🗑 התמונה תימחק כשתשמרו את המסמך</div>';
-  const btn = document.getElementById('deleteImgBtn');
+function markImageForDeletion(side){
+  pendingImage[side].del = true;
+  pendingImage[side].base64 = null;
+  document.getElementById('imgPreviewWrap'+side).innerHTML = '<div style="font-size:13px;color:var(--red);margin-top:6px;">🗑 התמונה תימחק כשתשמרו את המסמך</div>';
+  const btn = document.getElementById('deleteImgBtn'+side);
   if(btn) btn.remove();
 }
 
@@ -1205,24 +1269,32 @@ async function saveDocForm(){
   toast('שומר...');
 
   try{
-    if(pendingImageDelete && doc.imageFileId){
-      try{ await gasCall('deleteEncryptedImage', doc.imageFileId); }
-      catch(delErr){ logAppError('deleteEncryptedImage', delErr && delErr.message ? delErr.message : String(delErr)); }
-      doc.imageFileId = null; doc.imageMime = null; doc.hasImage = false;
-    }
-    if(pendingImageBase64){
-      const encImg = await aesEncryptText(MASTER_KEY, pendingImageBase64);
-      let res;
-      try{
-        res = await gasCall('saveEncryptedImage', doc.imageFileId||null, encImg);
-      }catch(imgErr){
-        // ניסיון שני - תמונות רגישות יותר לרשת לא יציבה (במיוחד מובייל)
-        logAppError('saveEncryptedImage:retry', imgErr && imgErr.message ? imgErr.message : String(imgErr));
-        res = await gasCall('saveEncryptedImage', doc.imageFileId||null, encImg);
+    const sideFields = {
+      1: { fileIdKey:'imageFileId', mimeKey:'imageMime', hasKey:'hasImage' },
+      2: { fileIdKey:'imageFileId2', mimeKey:'imageMime2', hasKey:'hasImage2' }
+    };
+    for(const side of [1,2]){
+      const p = pendingImage[side];
+      const f = sideFields[side];
+      if(p.del && doc[f.fileIdKey]){
+        try{ await gasCall('deleteEncryptedImage', doc[f.fileIdKey]); }
+        catch(delErr){ logAppError('deleteEncryptedImage', delErr && delErr.message ? delErr.message : String(delErr)); }
+        doc[f.fileIdKey] = null; doc[f.mimeKey] = null; doc[f.hasKey] = false;
       }
-      doc.imageFileId = res.fileId;
-      doc.imageMime = pendingImageMime;
-      doc.hasImage = true;
+      if(p.base64){
+        const encImg = await aesEncryptText(MASTER_KEY, p.base64);
+        let res;
+        try{
+          res = await gasCall('saveEncryptedImage', doc[f.fileIdKey]||null, encImg);
+        }catch(imgErr){
+          // ניסיון שני - תמונות רגישות יותר לרשת לא יציבה (במיוחד מובייל)
+          logAppError('saveEncryptedImage:retry', imgErr && imgErr.message ? imgErr.message : String(imgErr));
+          res = await gasCall('saveEncryptedImage', doc[f.fileIdKey]||null, encImg);
+        }
+        doc[f.fileIdKey] = res.fileId;
+        doc[f.mimeKey] = p.mime;
+        doc[f.hasKey] = true;
+      }
     }
     await persistDB();
     toast('נשמר בהצלחה ✓');
@@ -1247,6 +1319,10 @@ async function deleteDocConfirm(id){
     try{ await gasCall('deleteEncryptedImage', d.imageFileId); }
     catch(e){ console.error('image delete failed', e); }
   }
+  if(d.imageFileId2){
+    try{ await gasCall('deleteEncryptedImage', d.imageFileId2); }
+    catch(e){ console.error('image delete failed', e); }
+  }
   DB.documents = DB.documents.filter(x=>x.id!==id);
   closeSheet(); renderDocsTab(); toast('נמחק');
   persistDB().catch(e=>{ if(!e || e.message!=='conflict') toast('שגיאה בשמירה'); });
@@ -1259,7 +1335,10 @@ async function openDocDetail(id){
   const st = statusOf(d);
   let imgHtml = '';
   if(d.hasImage && d.imageFileId){
-    imgHtml = `<button type="button" class="btn btn-gray" style="margin:0 0 10px;" onclick="loadDocDetailImage('${d.id}')">📷 הצג תמונת מסמך</button>`;
+    imgHtml += `<button type="button" class="btn btn-gray" style="margin:0 0 8px;" onclick="loadDocDetailImage('${d.id}',1)">📷 הצג תמונה - צד קדמי</button>`;
+  }
+  if(d.hasImage2 && d.imageFileId2){
+    imgHtml += `<button type="button" class="btn btn-gray" style="margin:0 0 10px;" onclick="loadDocDetailImage('${d.id}',2)">📷 הצג תמונה - צד אחורי</button>`;
   }
   const rows = [
     ['שם', fam?fam.nameHe:''],
@@ -1282,7 +1361,7 @@ async function openDocDetail(id){
   const remLabels = REMINDER_OPTIONS.filter(r=>d.reminders&&d.reminders.includes(r.days)).map(r=>r.label);
   const remText = remLabels.length ? remLabels.join(' · ') : 'אין תזכורות מוגדרות';
   openSheet(`
-    <div class="sheet-header"><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+    <div class="sheet-header" style="justify-content:flex-start;"><button class="sheet-close" onclick="closeSheet()">✕</button></div>
     <div style="text-align:center;">
       <div style="width:44px;height:44px;border-radius:12px;background:${ICON_COLORS[d.type]||ICON_COLORS.other}1E;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 10px;">${ICON_EMOJI[d.type]||ICON_EMOJI.other}</div>
       <div style="font-size:22px;font-weight:700;color:var(--label);">${meta.label}</div>
@@ -1316,7 +1395,7 @@ function copyAllClick(btn){
   });
 }
 function openImageGallery(){
-  const withImages = DB.documents.filter(d=>d.hasImage && d.imageFileId && !d.archived);
+  const withImages = DB.documents.filter(d=>((d.hasImage && d.imageFileId) || (d.hasImage2 && d.imageFileId2)) && !d.archived);
   if(!withImages.length){
     openSheet(`<div class="sheet-header"><h2>כל תמונות המסמכים</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
       <div class="empty-state">אין עדיין מסמכים עם תמונה מצורפת.</div>`);
@@ -1328,14 +1407,16 @@ function openImageGallery(){
     const fam = DB.family.find(f=>f.id===d.familyId);
     const name = fam ? fam.nameHe : 'לא משויך';
     if(!byPerson[name]) byPerson[name] = [];
-    byPerson[name].push(d);
+    if(d.hasImage && d.imageFileId) byPerson[name].push({d, side:1});
+    if(d.hasImage2 && d.imageFileId2) byPerson[name].push({d, side:2});
   });
   const names = Object.keys(byPerson).sort((a,b)=>a.localeCompare(b,'he'));
   const html = names.map(name=>{
-    const rows = byPerson[name].map(d=>{
+    const rows = byPerson[name].map(({d,side})=>{
       const meta = docTypeMeta(d.type);
-      return `<div class="form-row" style="cursor:pointer;" onclick="openGalleryImage('${d.id}')">
-        <span class="frl" style="min-width:0;flex:1;text-align:right;">📷 תמונה ${meta.label}${d.country?' · '+d.country:''}</span>
+      const sideLabel = side===2 ? 'צד אחורי' : 'צד קדמי';
+      return `<div class="form-row" style="cursor:pointer;" onclick="openGalleryImage('${d.id}',${side})">
+        <span class="frl" style="min-width:0;flex:1;text-align:right;">📷 תמונה ${meta.label} · ${sideLabel}${d.country?' · '+d.country:''}</span>
         <span class="chev">‹</span>
       </div>`;
     }).join('');
@@ -1343,34 +1424,40 @@ function openImageGallery(){
   }).join('');
   openSheet(`<div class="sheet-header"><h2>כל תמונות המסמכים</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>${html}`);
 }
-async function openGalleryImage(id){
+async function openGalleryImage(id, side){
+  side = side || 1;
   const d = DB.documents.find(x=>x.id===id);
   if(!d) return;
   const meta = docTypeMeta(d.type);
   const fam = DB.family.find(f=>f.id===d.familyId);
+  const fileId = side===2 ? d.imageFileId2 : d.imageFileId;
+  const mime = side===2 ? d.imageMime2 : d.imageMime;
   openSheet(`<div class="sheet-header"><h2>${fam?fam.nameHe+' · ':''}${meta.label}</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
     <div id="galleryImgWrap"><div style="text-align:center;color:var(--label3);padding:20px 0;">טוען תמונה...</div></div>`);
   try{
-    const encImg = await gasCall('loadEncryptedImage', d.imageFileId);
+    const encImg = await gasCall('loadEncryptedImage', fileId);
     const b64img = await aesDecryptText(MASTER_KEY, encImg);
     const el = document.getElementById('galleryImgWrap');
-    if(el) el.innerHTML = `<img class="thumb-preview" src="data:${d.imageMime||'image/jpeg'};base64,${b64img}">`;
+    if(el) el.innerHTML = `<img class="thumb-preview" src="data:${mime||'image/jpeg'};base64,${b64img}">`;
   }catch(e){
     logAppError('openGalleryImage', e && e.message ? e.message : String(e));
     const el = document.getElementById('galleryImgWrap');
     if(el) el.innerHTML = '<div style="text-align:center;color:var(--red);padding:10px 0;font-size:13px;">שגיאה בטעינת התמונה</div>';
   }
 }
-async function loadDocDetailImage(id){
+async function loadDocDetailImage(id, side){
+  side = side || 1;
   const d = DB.documents.find(x=>x.id===id);
   if(!d) return;
+  const fileId = side===2 ? d.imageFileId2 : d.imageFileId;
+  const mime = side===2 ? d.imageMime2 : d.imageMime;
   const imgEl = document.getElementById('docDetailImg');
   if(imgEl) imgEl.innerHTML = '<div style="text-align:center;color:var(--label3);padding:10px 0;">טוען תמונה...</div>';
   try{
-    const encImg = await gasCall('loadEncryptedImage', d.imageFileId);
+    const encImg = await gasCall('loadEncryptedImage', fileId);
     const b64img = await aesDecryptText(MASTER_KEY, encImg);
     const el = document.getElementById('docDetailImg');
-    if(el) el.innerHTML = `<img class="thumb-preview" src="data:${d.imageMime||'image/jpeg'};base64,${b64img}">`;
+    if(el) el.innerHTML = `<img class="thumb-preview" src="data:${mime||'image/jpeg'};base64,${b64img}">`;
   }catch(e){
     logAppError('loadDocDetailImage', e && e.message ? e.message : String(e));
     const el = document.getElementById('docDetailImg');
@@ -1454,9 +1541,11 @@ async function saveFamilyForm(){
 async function deleteFamilyConfirm(id){
   if(!confirm('מחיקת בן המשפחה תמחק גם את כל המסמכים שלו. להמשיך?')) return;
   const docsToDelete = DB.documents.filter(d=>d.familyId===id);
-  await Promise.all(docsToDelete.map(d=>{
-    if(!d.imageFileId) return Promise.resolve();
-    return gasCall('deleteEncryptedImage', d.imageFileId).catch(e=>console.error('image delete failed', e));
+  await Promise.all(docsToDelete.flatMap(d=>{
+    const jobs = [];
+    if(d.imageFileId) jobs.push(gasCall('deleteEncryptedImage', d.imageFileId).catch(e=>console.error('image delete failed', e)));
+    if(d.imageFileId2) jobs.push(gasCall('deleteEncryptedImage', d.imageFileId2).catch(e=>console.error('image delete failed', e)));
+    return jobs;
   }));
   DB.documents = DB.documents.filter(d=>d.familyId!==id);
   DB.family = DB.family.filter(f=>f.id!==id);
@@ -1474,7 +1563,7 @@ function openFamilyDetail(id){
     <div style="margin-top:10px;">
     ${docs.map(d=>{
       const meta = docTypeMeta(d.type);
-      return `<div class="doc-card" onclick="closeSheet();openDocDetail('${d.id}')"><div class="doc-body">${docIconHtml(d.type, d.hasImage)}<div class="doc-info"><div class="doc-name">${meta.label}</div><div class="doc-type">${daysLabel(daysUntil(d.expiryDate))}</div></div></div></div>`;
+      return `<div class="doc-card" onclick="closeSheet();openDocDetail('${d.id}')"><div class="doc-body">${docIconHtml(d.type, d.hasImage||d.hasImage2)}<div class="doc-info"><div class="doc-name">${meta.label}</div><div class="doc-type">${daysLabel(daysUntil(d.expiryDate))}</div></div></div></div>`;
     }).join('') || '<div class="empty-state">אין מסמכים</div>'}
     </div>
   `);
