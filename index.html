@@ -776,9 +776,12 @@ function hideBusy(){
 }
 
 function gasCall(fnName, ...args){
-  let silent = false;
-  if(args.length && args[args.length-1] && typeof args[args.length-1]==='object' && args[args.length-1].__silentGasCall){
-    silent = true; args = args.slice(0,-1);
+  let silent = false, quietErrors = false;
+  if(args.length && args[args.length-1] && typeof args[args.length-1]==='object' &&
+     (args[args.length-1].__silentGasCall || args[args.length-1].__quietErrors)){
+    silent = !!args[args.length-1].__silentGasCall;
+    quietErrors = !!(args[args.length-1].__silentGasCall || args[args.length-1].__quietErrors);
+    args = args.slice(0,-1);
   }
   if(!silent) showBusy();
   return new Promise((resolve,reject)=>{
@@ -790,10 +793,16 @@ function gasCall(fnName, ...args){
     })
     .then(function(r){ return r.json(); })
     .then(function(res){
+      // שגיאה אמיתית שחזרה מהשרת (לא בעיית תקשורת) - תמיד שווה לתעד
       if(res && res.__error){ logAppError('gasCall:'+fnName, res.__error); reject(new Error(res.__error)); }
       else { resolve(res); }
     })
-    .catch(function(e){ logAppError('gasCall:'+fnName, e && e.message ? e.message : String(e)); reject(e); })
+    .catch(function(e){
+      // כשל תקשורת גרידא (אין רשת) - זו התנהגות צפויה במצב אופליין (מטופלת ע"י תור הסנכרון),
+      // לא נרשמת ליומן השגיאות כדי לא ליצור רעש מבלבל, אלא אם זו קריאה שלא ציפינו שתיכשל
+      if(!quietErrors) logAppError('gasCall:'+fnName, e && e.message ? e.message : String(e));
+      reject(e);
+    })
     .finally(function(){ if(!silent) hideBusy(); });
   });
 }
@@ -847,10 +856,11 @@ async function persistDB(){
 
   let res;
   try{
-    res = await gasCall('saveEncryptedDataAndIndex', wrapperStr, idx, baseTimestamp);
+    res = await gasCall('saveEncryptedDataAndIndex', wrapperStr, idx, baseTimestamp, {__quietErrors:true});
   }catch(networkErr){
     // אין חיבור לרשת (או שגיאת תקשורת זמנית) - לא זו "שגיאה" מבחינת המשתמש,
     // שומרים את השינוי בתור מקומי לשליחה אוטומטית ברגע שהחיבור יחזור
+    logAppError('persistDB', 'אין חיבור זמין - השינוי נשמר במכשיר ויסונכרן אוטומטית כשהחיבור יחזור');
     setPendingSync({ payload: wrapperStr, idx: idx, baseTimestamp: baseTimestamp, queuedAt: Date.now() });
     setOfflineBanner(true);
     return;
