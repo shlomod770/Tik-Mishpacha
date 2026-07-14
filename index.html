@@ -40,8 +40,8 @@ html,body{margin:0;padding:0;background:var(--bg);font-family:var(--font);color:
 .chips{display:flex;gap:8px;padding:6px 16px 6px;overflow-x:auto;}
 .chip{padding:6px 13px;border-radius:20px;border:1px solid var(--sep);background:var(--card);color:var(--label2);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;transition:all .18s;font-family:var(--font);}
 .chip.on{background:var(--blue);color:#FFF;border-color:var(--blue);}
-.filter-bar-btn{padding:6px 16px;}
-.filter-bar-btn button{background:none;border:none;color:var(--blue);font-size:13px;font-weight:700;font-family:var(--font);}
+.filter-bar-btn{padding:6px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:nowrap;}
+.filter-bar-btn button{background:none;border:none;color:var(--blue);font-size:13px;font-weight:700;font-family:var(--font);padding:0;}
 .list{padding:8px 16px 16px;}
 .doc-card{background:var(--card);border-radius:12px;box-shadow:var(--shadow);margin-bottom:9px;overflow:hidden;cursor:pointer;transition:background .12s;}
 .doc-card:active{transform:scale(.975);}
@@ -184,10 +184,12 @@ input:checked + .slider:before{transform:translateX(-19px);}
     <div class="pills" id="pills"></div>
     <div class="chips" id="statusChips"></div>
     <div class="filter-bar-btn">
-      <button onclick="openFilterSheet()">⚙️ סינון מתקדם</button>
-      <button onclick="openSortMenu()" id="sortBtn" style="margin-right:14px;">↕️ מיון</button>
-      <button onclick="clearFilters()" id="clearFiltersBtn" class="hidden" style="margin-right:14px;">נקה סינון</button>
-      <button onclick="openArchive()" style="float:left;">🗄️ ארכיון</button>
+      <div style="display:flex;align-items:center;gap:14px;min-width:0;overflow-x:auto;">
+        <button onclick="openFilterSheet()" style="white-space:nowrap;flex-shrink:0;">⚙️ סינון מתקדם</button>
+        <button onclick="openSortMenu()" id="sortBtn" style="white-space:nowrap;flex-shrink:0;">↕️ מיון</button>
+        <button onclick="clearFilters()" id="clearFiltersBtn" class="hidden" style="white-space:nowrap;flex-shrink:0;">✕ נקה</button>
+      </div>
+      <button onclick="openArchive()" style="white-space:nowrap;flex-shrink:0;">🗄️ ארכיון</button>
     </div>
     <div class="list" id="docList"></div>
   </div>
@@ -1419,6 +1421,7 @@ async function saveDocForm(){
   closeSheet(); renderDocsTab(); refreshFamilyTabIfVisible();
   toast('שומר...');
 
+  let imageSyncFailed = false;
   try{
     const sideFields = {
       1: { fileIdKey:'imageFileId', mimeKey:'imageMime', hasKey:'hasImage' },
@@ -1428,27 +1431,39 @@ async function saveDocForm(){
       const p = pendingImage[side];
       const f = sideFields[side];
       if(p.del && doc[f.fileIdKey]){
-        try{ await gasCall('deleteEncryptedImage', doc[f.fileIdKey]); }
-        catch(delErr){ logAppError('deleteEncryptedImage', delErr && delErr.message ? delErr.message : String(delErr)); }
-        doc[f.fileIdKey] = null; doc[f.mimeKey] = null; doc[f.hasKey] = false;
+        try{ await gasCall('deleteEncryptedImage', doc[f.fileIdKey]); doc[f.fileIdKey] = null; doc[f.mimeKey] = null; doc[f.hasKey] = false; }
+        catch(delErr){
+          logAppError('deleteEncryptedImage', delErr && delErr.message ? delErr.message : String(delErr));
+          imageSyncFailed = true; // התמונה תישאר משויכת למסמך - ננסה למחוק שוב בפעם הבאה שיש חיבור
+        }
       }
       if(p.base64){
-        const encImg = await aesEncryptText(MASTER_KEY, p.base64);
-        let res;
         try{
-          res = await gasCall('saveEncryptedImage', doc[f.fileIdKey]||null, encImg);
-        }catch(imgErr){
-          // ניסיון שני - תמונות רגישות יותר לרשת לא יציבה (במיוחד מובייל)
-          logAppError('saveEncryptedImage:retry', imgErr && imgErr.message ? imgErr.message : String(imgErr));
-          res = await gasCall('saveEncryptedImage', doc[f.fileIdKey]||null, encImg);
+          const encImg = await aesEncryptText(MASTER_KEY, p.base64);
+          let res;
+          try{
+            res = await gasCall('saveEncryptedImage', doc[f.fileIdKey]||null, encImg);
+          }catch(imgErr){
+            // ניסיון שני - תמונות רגישות יותר לרשת לא יציבה (במיוחד מובייל)
+            logAppError('saveEncryptedImage:retry', imgErr && imgErr.message ? imgErr.message : String(imgErr));
+            res = await gasCall('saveEncryptedImage', doc[f.fileIdKey]||null, encImg);
+          }
+          doc[f.fileIdKey] = res.fileId;
+          doc[f.mimeKey] = p.mime;
+          doc[f.hasKey] = true;
+        }catch(imgErr2){
+          // אין רשת בכלל כרגע - התמונה לא תעלה הפעם, אך שאר פרטי המסמך עדיין יישמרו/יתוזמנו לסנכרון
+          logAppError('saveEncryptedImage', imgErr2 && imgErr2.message ? imgErr2.message : String(imgErr2));
+          imageSyncFailed = true;
         }
-        doc[f.fileIdKey] = res.fileId;
-        doc[f.mimeKey] = p.mime;
-        doc[f.hasKey] = true;
       }
     }
     await persistDB();
-    toast('נשמר בהצלחה ✓');
+    if(getPendingSync()){
+      toast('אין חיבור כרגע - השינוי נשמר במכשיר ויסונכרן אוטומטית' + (imageSyncFailed?' (התמונה תצטרך העלאה חוזרת כשיש חיבור)':''));
+    } else {
+      toast(imageSyncFailed ? 'נשמר, אך התמונה לא הועלתה - נסו שוב כשיש חיבור' : 'נשמר בהצלחה ✓');
+    }
     if(!document.getElementById('tab-docs').classList.contains('hidden')) renderDocsTab();
     refreshFamilyTabIfVisible();
   }catch(e){
