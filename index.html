@@ -410,7 +410,7 @@ let DB = null; // { family:[], documents:[], countries:[], relationTypes:[], sal
 let lastActivity = Date.now();
 const IDLE_LIMIT_MS = 3*60*1000; // 3 דקות בדיוק כמבוקש
 let currentFilter = {status:'all', types:[], countries:[], people:[], archive:false};
-let currentSort = 'expiry'; // 'expiry' | 'person' | 'type'
+let currentSort = 'expiry'; // 'expiry' | 'person' | 'type' | 'country'
 let editingDocId = null, editingFamId = null;
 let pendingImage = {
   1: { base64: null, mime: null, del: false },
@@ -433,9 +433,10 @@ function docIconHtml(typeId, hasImage){
   return `<div class="doc-icon" style="background:${color}1E;position:relative;">${ICON_EMOJI[typeId]||ICON_EMOJI.other}${hasImage?'<div class="img-flag">📎</div>':''}</div>`;
 }
 const REMINDER_OPTIONS = [
-  {days:180, label:'6 חודשים לפני'},{days:90, label:'3 חודשים לפני'},{days:30, label:'30 יום לפני'},
+  {days:270, label:'9 חודשים לפני'},{days:180, label:'6 חודשים לפני'},{days:90, label:'3 חודשים לפני'},{days:30, label:'30 יום לפני'},
   {days:14, label:'שבועיים לפני'},{days:7, label:'שבוע לפני'},{days:1, label:'יום לפני'},{days:0, label:'ביום התפוגה'}
 ];
+const DEFAULT_REMINDER_DAYS = [180, 0]; // ברירת מחדל למסמך חדש: 6 חודשים לפני + ביום התפוגה
 const DEFAULT_RELATIONS = ['עצמי','אבא','אמא','אחר'];
 
 function docTypeMeta(id){return DOC_TYPES.find(d=>d.id===id) || DOC_TYPES[4];}
@@ -760,7 +761,11 @@ function hideBusy(){
 }
 
 function gasCall(fnName, ...args){
-  showBusy();
+  let silent = false;
+  if(args.length && args[args.length-1] && typeof args[args.length-1]==='object' && args[args.length-1].__silentGasCall){
+    silent = true; args = args.slice(0,-1);
+  }
+  if(!silent) showBusy();
   return new Promise((resolve,reject)=>{
     fetch(APPS_SCRIPT_URL, {
       method: 'POST',
@@ -774,7 +779,7 @@ function gasCall(fnName, ...args){
       else { resolve(res); }
     })
     .catch(function(e){ logAppError('gasCall:'+fnName, e && e.message ? e.message : String(e)); reject(e); })
-    .finally(function(){ hideBusy(); });
+    .finally(function(){ if(!silent) hideBusy(); });
   });
 }
 
@@ -1015,7 +1020,8 @@ function openSortMenu(){
   const opts = [
     {key:'expiry', label:'לפי תוקף (ברירת מחדל)', sub:'מהתוקף הקרוב ביותר לרחוק ביותר'},
     {key:'person', label:'לפי בני משפחה', sub:'כל המסמכים מקובצים לפי שם'},
-    {key:'type', label:'לפי סוג מסמך', sub:'כל המסמכים מקובצים לפי סוג (דרכונים, ת.ז וכו׳)'}
+    {key:'type', label:'לפי סוג מסמך', sub:'כל המסמכים מקובצים לפי סוג (דרכונים, ת.ז וכו׳)'},
+    {key:'country', label:'לפי מדינה', sub:'כל המסמכים מקובצים לפי המדינה שהנפיקה אותם'}
   ];
   const html = opts.map(o=>`
     <div class="form-row" style="cursor:pointer;align-items:center;" onclick="setSortMode('${o.key}')">
@@ -1093,6 +1099,9 @@ function renderDocsTab(){
       const fam = DB.family.find(f=>f.id===d.familyId);
       key = d.familyId || '_none';
       label = fam ? fam.nameHe : 'לא משויך';
+    } else if(currentSort==='country'){
+      key = d.country || '_none';
+      label = d.country || 'ללא מדינה';
     } else {
       const meta = docTypeMeta(d.type);
       key = d.type || '_other';
@@ -1206,7 +1215,7 @@ function openDocForm(docId){
     <div class="form-section-title">תזכורות</div>
     <div class="form-card">
       <div class="reminder-chips">
-        ${REMINDER_OPTIONS.map(r=>`<input type="checkbox" class="chip-check" id="rem_${r.days}" ${d&&d.reminders&&d.reminders.includes(r.days)?'checked':''}><label for="rem_${r.days}" class="reminder-chip">${r.label}</label>`).join('')}
+        ${REMINDER_OPTIONS.map(r=>`<input type="checkbox" class="chip-check" id="rem_${r.days}" ${d ? (d.reminders&&d.reminders.includes(r.days)?'checked':'') : (DEFAULT_REMINDER_DAYS.includes(r.days)?'checked':'')}><label for="rem_${r.days}" class="reminder-chip">${r.label}</label>`).join('')}
       </div>
     </div>
 
@@ -1732,12 +1741,21 @@ function openFamilyDetail(id){
  * הגדרות
  *************************************************************/
 async function renderSettingsTab(){
-  const email = await gasCall('getReminderEmail');
-  document.getElementById('reminderEmailInput').value = email || '';
+  // מציגים מיד ערך שמור מהפעם הקודמת (בלי אינדיקציית טעינה) ומרעננים ברקע בשקט
+  const cachedEmail = localGet('mdocs_email_cache');
+  document.getElementById('reminderEmailInput').value = cachedEmail || '';
   renderRelationTypesSettings();
   renderCountriesSettings();
   renderBiometricRow();
   renderErrorLogSettings();
+  try{
+    const email = await gasCall('getReminderEmail', {__silentGasCall:true});
+    localSet('mdocs_email_cache', email || '');
+    // רק אם המשתמש לא באמצע עריכה של השדה הזה כרגע
+    if(document.activeElement !== document.getElementById('reminderEmailInput')){
+      document.getElementById('reminderEmailInput').value = email || '';
+    }
+  }catch(e){ /* אין רשת כרגע - נשארים עם הערך השמור */ }
 }
 async function renderBiometricRow(){
   const el = document.getElementById('biometricRow');
@@ -1818,6 +1836,7 @@ async function saveReminderEmail(){
   const v = document.getElementById('reminderEmailInput').value.trim();
   await gasCall('setReminderEmail', v);
   await gasCall('ensureDailyTrigger');
+  localSet('mdocs_email_cache', v);
   toast('הכתובת נשמרה');
 }
 async function sendStatusNowClick(){
