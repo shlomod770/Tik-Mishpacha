@@ -56,9 +56,10 @@ html,body{margin:0;padding:0;background:var(--bg);font-family:var(--font);color:
 .b-red{background:rgba(192,57,43,.1);color:var(--red);} .b-orange{background:rgba(201,121,26,.1);color:var(--orange);}
 .b-yellow{background:rgba(176,138,0,.1);color:#8a6d00;} .b-green{background:rgba(30,145,102,.1);color:var(--green);} .b-gray{background:var(--fill);color:var(--label3);}
 .empty-state{text-align:center;color:var(--label3);padding:60px 20px;font-size:14px;}
-.fab{width:48px;height:48px;border-radius:50%;background:var(--blue);color:#fff;font-size:24px;border:none;
+.fab{width:48px;height:48px;border-radius:50%;background:var(--blue);color:#fff;font-size:24px;border:none;outline:none;-webkit-appearance:none;appearance:none;
   box-shadow:0 4px 20px rgba(0,122,255,.42);cursor:pointer;position:absolute;bottom:78px;left:16px;
   display:flex;align-items:center;justify-content:center;padding:0;line-height:1;transition:transform .15s;}
+.fab:active,.fab:focus,.fab:focus-visible{outline:none;box-shadow:0 4px 20px rgba(0,122,255,.42);}
 .fab:active{transform:scale(.91);}
 .bottom-wrap{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:center;z-index:20;pointer-events:none;}
 .bottom-inner{max-width:520px;width:100%;position:relative;pointer-events:none;}
@@ -100,6 +101,9 @@ textarea{resize:vertical;min-height:60px;}
 .sheet-close{background:var(--fill);border:none;border-radius:50%;width:30px;height:30px;font-size:14px;cursor:pointer;color:var(--label3);display:flex;align-items:center;justify-content:center;padding:0;line-height:1;flex-shrink:0;}
 .checkbox-row{display:flex;align-items:center;gap:8px;padding:8px 0;}
 .thumb-preview{max-width:100%;border-radius:12px;margin:8px 0;}
+.img-viewer-stage{overflow:hidden;touch-action:none;border-radius:12px;background:#000;display:flex;align-items:center;justify-content:center;position:relative;height:56vh;max-height:480px;}
+.img-viewer-stage img{max-width:100%;max-height:100%;transform-origin:center center;user-select:none;-webkit-user-drag:none;touch-action:none;}
+.img-viewer-hint{text-align:center;font-size:12px;color:var(--label3);margin-top:8px;}
 #lock-screen{position:fixed;inset:0;background:linear-gradient(165deg,#1C1C2E 0%,#16213E 55%,#0F3460 100%);z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;}
 #lock-screen .lock-title{color:#FFF;}
 #lock-screen .lock-sub{color:rgba(255,255,255,.65);}
@@ -1261,7 +1265,8 @@ async function saveDocForm(){
   doc.reminders = reminders;
   doc.sentDays = doc.sentDays || [];
 
-  if(!DB.countries.includes(doc.country) && doc.country) DB.countries.push(doc.country);
+  // הערה: מדינה שהוקלדה ידנית דרך "אחר..." נשמרת רק בתוך המסמך הזה,
+  // ולא מתווספת אוטומטית לרשימת המדינות המהירה (זו מנוהלת רק דרך ההגדרות)
   if(!editingDocId) DB.documents.push(doc);
 
   // עדכון מיידי של המסך - לא מחכים לשרת כדי שהאפליקציה תרגיש מהירה
@@ -1361,7 +1366,7 @@ async function openDocDetail(id){
   const remLabels = REMINDER_OPTIONS.filter(r=>d.reminders&&d.reminders.includes(r.days)).map(r=>r.label);
   const remText = remLabels.length ? remLabels.join(' · ') : 'אין תזכורות מוגדרות';
   openSheet(`
-    <div class="sheet-header" style="justify-content:flex-start;"><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+    <div class="sheet-header"><h2>${meta.label}</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
     <div style="text-align:center;">
       <div style="width:44px;height:44px;border-radius:12px;background:${ICON_COLORS[d.type]||ICON_COLORS.other}1E;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 10px;">${ICON_EMOJI[d.type]||ICON_EMOJI.other}</div>
       <div style="font-size:22px;font-weight:700;color:var(--label);">${meta.label}</div>
@@ -1437,18 +1442,90 @@ async function openGalleryImage(id, side){
   try{
     const encImg = await gasCall('loadEncryptedImage', fileId);
     const b64img = await aesDecryptText(MASTER_KEY, encImg);
-    const el = document.getElementById('galleryImgWrap');
-    if(el) el.innerHTML = `<img class="thumb-preview" src="data:${mime||'image/jpeg'};base64,${b64img}">`;
+    const filename = [fam?fam.nameHe:'', meta.label, side===2?'צד אחורי':'צד קדמי'].filter(Boolean).join('_');
+    renderImageViewer('galleryImgWrap', mime, b64img, filename);
   }catch(e){
     logAppError('openGalleryImage', e && e.message ? e.message : String(e));
     const el = document.getElementById('galleryImgWrap');
     if(el) el.innerHTML = '<div style="text-align:center;color:var(--red);padding:10px 0;font-size:13px;">שגיאה בטעינת התמונה</div>';
   }
 }
+/*************************************************************
+ * מציג תמונה בתוך מיכל נתון עם זום (צביטה/גלגלת/הקשה כפולה)
+ * וכפתור הורדה למכשיר.
+ *************************************************************/
+function renderImageViewer(containerId, mime, b64, filename){
+  const el = document.getElementById(containerId);
+  if(!el) return;
+  const stageId = containerId+'_stage', imgId = containerId+'_img';
+  el.innerHTML = `
+    <div class="img-viewer-stage" id="${stageId}"><img id="${imgId}" src="data:${mime||'image/jpeg'};base64,${b64}"></div>
+    <div class="img-viewer-hint">צביטה או הקשה כפולה להגדלה</div>
+    <button type="button" class="btn btn-blue" style="margin-top:10px;" onclick="downloadImageViewerImg('${imgId}','${escAttr(filename||'מסמך')}')">⬇️ הורדה למכשיר</button>
+  `;
+  attachImageZoom(document.getElementById(stageId), document.getElementById(imgId));
+}
+function attachImageZoom(stage, img){
+  if(!stage || !img) return;
+  let scale=1, posX=0, posY=0, startX=0, startY=0, startDist=0, startScale=1, lastTap=0;
+  const pts = {};
+  function apply(){ img.style.transform = `translate(${posX}px,${posY}px) scale(${scale})`; }
+  function reset(){ scale=1; posX=0; posY=0; apply(); }
+  function toggleZoom(){ if(scale>1){ reset(); } else { scale=2.2; apply(); } }
+  stage.addEventListener('pointerdown', e=>{
+    stage.setPointerCapture && stage.setPointerCapture(e.pointerId);
+    pts[e.pointerId] = {x:e.clientX,y:e.clientY};
+    const ids = Object.keys(pts);
+    if(ids.length===1){ startX = e.clientX - posX; startY = e.clientY - posY; }
+    else if(ids.length===2){
+      const [a,b] = Object.values(pts);
+      startDist = Math.hypot(a.x-b.x, a.y-b.y); startScale = scale;
+    }
+  });
+  stage.addEventListener('pointermove', e=>{
+    if(!pts[e.pointerId]) return;
+    pts[e.pointerId] = {x:e.clientX,y:e.clientY};
+    const ids = Object.keys(pts);
+    if(ids.length===1 && scale>1){ posX = e.clientX - startX; posY = e.clientY - startY; apply(); }
+    else if(ids.length===2){
+      const [a,b] = Object.values(pts);
+      const dist = Math.hypot(a.x-b.x, a.y-b.y);
+      if(startDist>0){ scale = Math.min(4, Math.max(1, startScale * (dist/startDist))); apply(); }
+    }
+  });
+  function endPt(e){ delete pts[e.pointerId]; if(Object.keys(pts).length===0 && scale<1.02) reset(); }
+  stage.addEventListener('pointerup', endPt);
+  stage.addEventListener('pointercancel', endPt);
+  stage.addEventListener('pointerleave', endPt);
+  stage.addEventListener('dblclick', toggleZoom);
+  stage.addEventListener('touchend', ()=>{
+    const now = Date.now();
+    if(now-lastTap<300 && Object.keys(pts).length===0) toggleZoom();
+    lastTap = now;
+  });
+  stage.addEventListener('wheel', e=>{
+    e.preventDefault();
+    scale = Math.min(4, Math.max(1, scale - e.deltaY*0.0025));
+    if(scale<=1){ reset(); } else apply();
+  }, {passive:false});
+}
+function downloadImageViewerImg(imgId, filename){
+  const img = document.getElementById(imgId);
+  if(!img || !img.src) return;
+  const a = document.createElement('a');
+  a.href = img.src;
+  a.download = (filename||'מסמך') + '.jpg';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  toast('התמונה הורדה למכשיר ✓');
+}
 async function loadDocDetailImage(id, side){
   side = side || 1;
   const d = DB.documents.find(x=>x.id===id);
   if(!d) return;
+  const fam = DB.family.find(f=>f.id===d.familyId);
+  const meta = docTypeMeta(d.type);
   const fileId = side===2 ? d.imageFileId2 : d.imageFileId;
   const mime = side===2 ? d.imageMime2 : d.imageMime;
   const imgEl = document.getElementById('docDetailImg');
@@ -1456,8 +1533,8 @@ async function loadDocDetailImage(id, side){
   try{
     const encImg = await gasCall('loadEncryptedImage', fileId);
     const b64img = await aesDecryptText(MASTER_KEY, encImg);
-    const el = document.getElementById('docDetailImg');
-    if(el) el.innerHTML = `<img class="thumb-preview" src="data:${mime||'image/jpeg'};base64,${b64img}">`;
+    const filename = [fam?fam.nameHe:'', meta.label, side===2?'צד אחורי':'צד קדמי'].filter(Boolean).join('_');
+    renderImageViewer('docDetailImg', mime, b64img, filename);
   }catch(e){
     logAppError('loadDocDetailImage', e && e.message ? e.message : String(e));
     const el = document.getElementById('docDetailImg');
@@ -1563,7 +1640,7 @@ function openFamilyDetail(id){
     <div style="margin-top:10px;">
     ${docs.map(d=>{
       const meta = docTypeMeta(d.type);
-      return `<div class="doc-card" onclick="closeSheet();openDocDetail('${d.id}')"><div class="doc-body">${docIconHtml(d.type, d.hasImage||d.hasImage2)}<div class="doc-info"><div class="doc-name">${meta.label}</div><div class="doc-type">${daysLabel(daysUntil(d.expiryDate))}</div></div></div></div>`;
+      return `<div class="doc-card" onclick="closeSheet();openDocDetail('${d.id}')"><div class="doc-body">${docIconHtml(d.type, d.hasImage||d.hasImage2)}<div class="doc-info"><div class="doc-name">${meta.label}</div><div class="doc-type">${d.country?d.country+' • ':''}${daysLabel(daysUntil(d.expiryDate))}</div></div></div></div>`;
     }).join('') || '<div class="empty-state">אין מסמכים</div>'}
     </div>
   `);
