@@ -182,6 +182,7 @@ input:checked + .slider:before{transform:translateX(-19px);}
     <div class="chips" id="statusChips"></div>
     <div class="filter-bar-btn">
       <button onclick="openFilterSheet()">⚙️ סינון מתקדם</button>
+      <button onclick="openSortMenu()" id="sortBtn" style="margin-right:14px;">↕️ מיון</button>
       <button onclick="clearFilters()" id="clearFiltersBtn" class="hidden" style="margin-right:14px;">נקה סינון</button>
       <button onclick="openArchive()" style="float:left;">🗄️ ארכיון</button>
     </div>
@@ -409,6 +410,7 @@ let DB = null; // { family:[], documents:[], countries:[], relationTypes:[], sal
 let lastActivity = Date.now();
 const IDLE_LIMIT_MS = 3*60*1000; // 3 דקות בדיוק כמבוקש
 let currentFilter = {status:'all', types:[], countries:[], people:[], archive:false};
+let currentSort = 'expiry'; // 'expiry' | 'person' | 'type'
 let editingDocId = null, editingFamId = null;
 let pendingImage = {
   1: { base64: null, mime: null, del: false },
@@ -528,7 +530,11 @@ function renderFirstTimeSetup(el){
       <button type="button" onclick="toggleCodeVisibility(['setupLongCode','setupLongCode2'], this)" style="background:none;border:none;color:var(--blue);font-size:13px;font-weight:600;font-family:var(--font);padding:0 0 12px;cursor:pointer;">👁 הצג/הסתר את הקוד שהקלדתי</button>
       <div class="field"><label class="field-label">בחרו קוד PIN (6-8 ספרות) לשימוש יומיומי</label>
         <input type="password" id="setupPin" inputmode="numeric" placeholder="לדוגמה 1234"></div>
-      <button class="btn btn-blue" id="setupBtn" onclick="doFirstTimeSetup()">התחלה</button>
+      <label style="display:flex;align-items:flex-start;gap:8px;margin:4px 0 14px;cursor:pointer;font-size:13px;color:var(--label2);line-height:1.4;">
+        <input type="checkbox" id="setupConfirmCheck" style="margin-top:3px;flex-shrink:0;width:17px;height:17px;" onchange="document.getElementById('setupBtn').disabled = !this.checked;">
+        <span>אני מאשר/ת ששמרתי את הקוד במקום בטוח, ומבין/ה שבלי קוד זה לא תהיה לי גישה לשחזור המידע שלי באפליקציה.</span>
+      </label>
+      <button class="btn btn-blue" id="setupBtn" onclick="doFirstTimeSetup()" disabled style="opacity:.5;">התחלה</button>
       <div id="setupError" style="color:var(--red);font-size:13px;text-align:center;"></div>
     </div>`;
 }
@@ -1005,6 +1011,27 @@ function matchesFilter(d){
   return true;
 }
 
+function openSortMenu(){
+  const opts = [
+    {key:'expiry', label:'לפי תוקף (ברירת מחדל)', sub:'מהתוקף הקרוב ביותר לרחוק ביותר'},
+    {key:'person', label:'לפי בני משפחה', sub:'כל המסמכים מקובצים לפי שם'},
+    {key:'type', label:'לפי סוג מסמך', sub:'כל המסמכים מקובצים לפי סוג (דרכונים, ת.ז וכו׳)'}
+  ];
+  const html = opts.map(o=>`
+    <div class="form-row" style="cursor:pointer;align-items:center;" onclick="setSortMode('${o.key}')">
+      <span style="font-size:18px;margin-left:10px;">${currentSort===o.key?'🔵':'⚪️'}</span>
+      <span class="frl" style="min-width:0;flex:1;text-align:right;">
+        <div style="font-weight:600;">${o.label}</div>
+        <div style="font-size:12px;color:var(--label3);margin-top:2px;">${o.sub}</div>
+      </span>
+    </div>`).join('');
+  openSheet(`<div class="sheet-header"><h2>מיון מסמכים</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div><div class="form-card">${html}</div>`);
+}
+function setSortMode(mode){
+  currentSort = mode;
+  closeSheet();
+  renderDocsTab();
+}
 function renderDocsTab(){
   const nonArchived = DB.documents.filter(d=>!d.archived);
   const counts = computeCounts(nonArchived);
@@ -1031,7 +1058,8 @@ function renderDocsTab(){
 
   const container = document.getElementById('docList');
   if(!list.length){ container.innerHTML = '<div class="empty-state">אין מסמכים להצגה</div>'; return; }
-  container.innerHTML = list.map(d=>{
+
+  const cardHtml = (d)=>{
     const fam = DB.family.find(f=>f.id===d.familyId);
     const meta = docTypeMeta(d.type);
     const days = daysUntil(d.expiryDate);
@@ -1049,7 +1077,38 @@ function renderDocsTab(){
         <div class="badge ${badgeClass}">${daysLabel(days)}</div>
       </div>
     </div>`;
-  }).join('');
+  };
+
+  if(currentSort==='expiry'){
+    container.innerHTML = list.map(cardHtml).join('');
+    return;
+  }
+
+  // מיון מקובץ: לפי בן משפחה או לפי סוג מסמך (הרשימה כבר ממוינת לפי תוקף בתוך כל קבוצה)
+  const groups = [];
+  const groupIndex = {};
+  list.forEach(d=>{
+    let key, label;
+    if(currentSort==='person'){
+      const fam = DB.family.find(f=>f.id===d.familyId);
+      key = d.familyId || '_none';
+      label = fam ? fam.nameHe : 'לא משויך';
+    } else {
+      const meta = docTypeMeta(d.type);
+      key = d.type || '_other';
+      label = meta.label;
+    }
+    if(!(key in groupIndex)){
+      groupIndex[key] = groups.length;
+      groups.push({key, label, docs:[]});
+    }
+    groups[groupIndex[key]].docs.push(d);
+  });
+  groups.sort((a,b)=>a.label.localeCompare(b.label,'he'));
+  container.innerHTML = groups.map(g=>`
+    <div class="form-section-title" style="margin-top:16px;">${g.label} <span style="color:var(--label3);font-weight:400;">(${g.docs.length})</span></div>
+    ${g.docs.map(cardHtml).join('')}
+  `).join('');
 }
 function setStatusFilter(s){ currentFilter.status=s; renderDocsTab(); }
 function clearFilters(){ currentFilter={status:'all',types:[],countries:[],people:[],archive:false}; document.getElementById('searchInput').value=''; renderDocsTab(); }
@@ -1270,7 +1329,7 @@ async function saveDocForm(){
   if(!editingDocId) DB.documents.push(doc);
 
   // עדכון מיידי של המסך - לא מחכים לשרת כדי שהאפליקציה תרגיש מהירה
-  closeSheet(); renderDocsTab();
+  closeSheet(); renderDocsTab(); refreshFamilyTabIfVisible();
   toast('שומר...');
 
   try{
@@ -1304,6 +1363,7 @@ async function saveDocForm(){
     await persistDB();
     toast('נשמר בהצלחה ✓');
     if(!document.getElementById('tab-docs').classList.contains('hidden')) renderDocsTab();
+    refreshFamilyTabIfVisible();
   }catch(e){
     logAppError('saveDocForm', e && e.message ? e.message : String(e));
     if(!e || e.message!=='conflict') toast('שגיאה בשמירה: ' + (e && e.message ? e.message : 'בדקו חיבור לאינטרנט') + ' — פרטים ביומן שגיאות בהגדרות');
@@ -1314,7 +1374,7 @@ async function saveDocForm(){
 function toggleArchiveDoc(id){
   const d = DB.documents.find(x=>x.id===id);
   d.archived = !d.archived;
-  closeSheet(); renderDocsTab(); toast(d.archived?'הועבר לארכיון':'שוחזר מהארכיון');
+  closeSheet(); renderDocsTab(); refreshFamilyTabIfVisible(); toast(d.archived?'הועבר לארכיון':'שוחזר מהארכיון');
   persistDB().catch(e=>{ if(!e || e.message!=='conflict') toast('שגיאה בשמירה'); });
 }
 async function deleteDocConfirm(id){
@@ -1329,7 +1389,7 @@ async function deleteDocConfirm(id){
     catch(e){ console.error('image delete failed', e); }
   }
   DB.documents = DB.documents.filter(x=>x.id!==id);
-  closeSheet(); renderDocsTab(); toast('נמחק');
+  closeSheet(); renderDocsTab(); refreshFamilyTabIfVisible(); toast('נמחק');
   persistDB().catch(e=>{ if(!e || e.message!=='conflict') toast('שגיאה בשמירה'); });
 }
 
@@ -1443,7 +1503,12 @@ async function openGalleryImage(id, side){
     const encImg = await gasCall('loadEncryptedImage', fileId);
     const b64img = await aesDecryptText(MASTER_KEY, encImg);
     const filename = [fam?fam.nameHe:'', meta.label, side===2?'צד אחורי':'צד קדמי'].filter(Boolean).join('_');
-    renderImageViewer('galleryImgWrap', mime, b64img, filename);
+    const nav = (d.hasImage && d.hasImage2) ? {
+      hasOther:true, side:side,
+      switchTo1:`openGalleryImage('${d.id}',1)`,
+      switchTo2:`openGalleryImage('${d.id}',2)`
+    } : null;
+    renderImageViewer('galleryImgWrap', mime, b64img, filename, nav);
   }catch(e){
     logAppError('openGalleryImage', e && e.message ? e.message : String(e));
     const el = document.getElementById('galleryImgWrap');
@@ -1454,11 +1519,19 @@ async function openGalleryImage(id, side){
  * מציג תמונה בתוך מיכל נתון עם זום (צביטה/גלגלת/הקשה כפולה)
  * וכפתור הורדה למכשיר.
  *************************************************************/
-function renderImageViewer(containerId, mime, b64, filename){
+function renderImageViewer(containerId, mime, b64, filename, nav){
   const el = document.getElementById(containerId);
   if(!el) return;
   const stageId = containerId+'_stage', imgId = containerId+'_img';
+  let navHtml = '';
+  if(nav && nav.hasOther){
+    navHtml = `<div style="display:flex;gap:8px;margin-bottom:8px;">
+      <button type="button" class="btn ${nav.side===1?'btn-blue':'btn-gray'}" style="flex:1;margin:0;" ${nav.side===1?'disabled':`onclick="${nav.switchTo1}"`}>צד קדמי</button>
+      <button type="button" class="btn ${nav.side===2?'btn-blue':'btn-gray'}" style="flex:1;margin:0;" ${nav.side===2?'disabled':`onclick="${nav.switchTo2}"`}>צד אחורי</button>
+    </div>`;
+  }
   el.innerHTML = `
+    ${navHtml}
     <div class="img-viewer-stage" id="${stageId}"><img id="${imgId}" src="data:${mime||'image/jpeg'};base64,${b64}"></div>
     <div class="img-viewer-hint">צביטה או הקשה כפולה להגדלה</div>
     <button type="button" class="btn btn-blue" style="margin-top:10px;" onclick="downloadImageViewerImg('${imgId}','${escAttr(filename||'מסמך')}')">⬇️ הורדה למכשיר</button>
@@ -1534,7 +1607,12 @@ async function loadDocDetailImage(id, side){
     const encImg = await gasCall('loadEncryptedImage', fileId);
     const b64img = await aesDecryptText(MASTER_KEY, encImg);
     const filename = [fam?fam.nameHe:'', meta.label, side===2?'צד אחורי':'צד קדמי'].filter(Boolean).join('_');
-    renderImageViewer('docDetailImg', mime, b64img, filename);
+    const nav = (d.hasImage && d.hasImage2) ? {
+      hasOther:true, side:side,
+      switchTo1:`loadDocDetailImage('${d.id}',1)`,
+      switchTo2:`loadDocDetailImage('${d.id}',2)`
+    } : null;
+    renderImageViewer('docDetailImg', mime, b64img, filename, nav);
   }catch(e){
     logAppError('loadDocDetailImage', e && e.message ? e.message : String(e));
     const el = document.getElementById('docDetailImg');
@@ -1562,6 +1640,10 @@ document.addEventListener('click', e=>{
 /*************************************************************
  * טאב משפחה
  *************************************************************/
+function refreshFamilyTabIfVisible(){
+  const el = document.getElementById('tab-family');
+  if(el && !el.classList.contains('hidden')) renderFamilyTab();
+}
 function renderFamilyTab(){
   const el = document.getElementById('famList');
   if(!DB.family.length){ el.innerHTML = '<div class="empty-state">אין עדיין בני משפחה. הוסיפו באמצעות כפתור ה-+</div>'; return; }
