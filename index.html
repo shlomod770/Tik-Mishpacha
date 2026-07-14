@@ -1167,8 +1167,8 @@ function renderDocsTab(){
       <div class="doc-body">
         ${docIconHtml(d.type, d.hasImage||d.hasImage2)}
         <div class="doc-info">
-          <div class="doc-name">${fam?fam.nameHe:'?'} ${d.archived?'· בארכיון':''}</div>
-          <div class="doc-type">${meta.label}${d.country?' · '+d.country:''}</div>
+          <div class="doc-name">${fam?esc(fam.nameHe):'?'} ${d.archived?'· בארכיון':''}</div>
+          <div class="doc-type">${meta.label}${d.country?' · '+esc(d.country):''}</div>
         </div>
         <div class="badge ${badgeClass}">${daysLabel(days)}</div>
       </div>
@@ -1205,7 +1205,7 @@ function renderDocsTab(){
   });
   groups.sort((a,b)=>a.label.localeCompare(b.label,'he'));
   container.innerHTML = groups.map(g=>`
-    <div class="form-section-title" style="margin-top:16px;">${g.label} <span style="color:var(--label3);font-weight:400;">(${g.docs.length})</span></div>
+    <div class="form-section-title" style="margin-top:16px;">${esc(g.label)} <span style="color:var(--label3);font-weight:400;">(${g.docs.length})</span></div>
     ${g.docs.map(cardHtml).join('')}
   `).join('');
 }
@@ -1229,7 +1229,7 @@ function renderArchiveList(){
     return `<div class="doc-card" onclick="closeSheet();openDocDetail('${d.id}')">
       <div class="strip expired"></div>
       <div class="doc-body">${docIconHtml(d.type, d.hasImage||d.hasImage2)}
-      <div class="doc-info"><div class="doc-name">${fam?fam.nameHe:'?'}</div><div class="doc-type">${meta.label}${d.expiryDate?' · '+formatDDMMYYYY(d.expiryDate):''}</div></div></div></div>`;
+      <div class="doc-info"><div class="doc-name">${fam?esc(fam.nameHe):'?'}</div><div class="doc-type">${meta.label}${d.expiryDate?' · '+formatDDMMYYYY(d.expiryDate):''}</div></div></div></div>`;
   }).join('');
 }
 function closeArchiveSheet(){ currentFilter.archive=false; closeSheet(); renderDocsTab(); }
@@ -1246,10 +1246,10 @@ function openFilterSheet(){
     }).join('')}</div>
     <div class="chip-cat">מדינה</div>
     <div class="chips" style="flex-wrap:wrap;">${usedCountries.map(c=>
-      `<button class="chip ${currentFilter.countries.includes(c)?'on':''}" data-cat="countries" data-val="${escAttr(c)}" onclick="toggleFilterVal('countries','${c}',this)">${c}</button>`).join('')}</div>
+      `<button class="chip ${currentFilter.countries.includes(c)?'on':''}" data-cat="countries" data-val="${escAttr(c)}" onclick="toggleFilterVal('countries',this.dataset.val,this)">${esc(c)}</button>`).join('')}</div>
     <div class="chip-cat">בן משפחה</div>
     <div class="chips" style="flex-wrap:wrap;">${DB.family.map(f=>
-      `<button class="chip ${currentFilter.people.includes(f.id)?'on':''}" data-cat="people" data-val="${escAttr(f.id)}" onclick="toggleFilterVal('people','${f.id}',this)">${f.nameHe}</button>`).join('')}</div>
+      `<button class="chip ${currentFilter.people.includes(f.id)?'on':''}" data-cat="people" data-val="${escAttr(f.id)}" onclick="toggleFilterVal('people','${f.id}',this)">${esc(f.nameHe)}</button>`).join('')}</div>
     <div style="padding:14px 0 0;"><button class="btn btn-blue" onclick="closeSheet();renderDocsTab();">החל סינון</button></div>
   `);
 }
@@ -1270,16 +1270,16 @@ function openDocForm(docId){
   const d = docId ? DB.documents.find(x=>x.id===docId) : null;
   pendingImage = { 1:{base64:null,mime:null,del:false}, 2:{base64:null,mime:null,del:false} };
   const countryOptions = DB.countries.length ?
-    `<select id="docCountry">${['', ...DB.countries].map(c=>`<option ${d&&d.country===c?'selected':''}>${c}</option>`).join('')}<option value="__other__">אחר...</option></select>`
-    : `<input type="text" id="docCountry" value="${d?d.country||'':''}">`;
+    `<select id="docCountry">${['', ...DB.countries].map(c=>`<option ${d&&d.country===c?'selected':''}>${esc(c)}</option>`).join('')}<option value="__other__">אחר...</option></select>`
+    : `<input type="text" id="docCountry" value="${d?escAttr(d.country||''):''}">`;
   openSheet(`
     <div class="sheet-header"><h2>${d?'עריכת מסמך':'מסמך חדש'}</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
 
     <div class="form-section-title">פרטי מסמך</div>
     <div class="form-card">
-      <div class="form-row"><span class="frl">שייך ל</span><select id="docFamily">${DB.family.map(f=>`<option value="${f.id}" ${d&&d.familyId===f.id?'selected':''}>${f.nameHe}</option>`).join('')}</select></div>
+      <div class="form-row"><span class="frl">שייך ל</span><select id="docFamily">${DB.family.map(f=>`<option value="${f.id}" ${d&&d.familyId===f.id?'selected':''}>${esc(f.nameHe)}</option>`).join('')}</select></div>
       <div class="form-row"><span class="frl">סוג מסמך</span><select id="docType">${DOC_TYPES.map(t=>`<option value="${t.id}" ${d&&d.type===t.id?'selected':''}>${t.label}</option>`).join('')}</select></div>
-      <div class="form-row"><span class="frl">מספר מסמך</span><input type="text" id="docNumber" value="${d?d.docNumber||'':''}"></div>
+      <div class="form-row"><span class="frl">מספר מסמך</span><input type="text" id="docNumber" value="${d?escAttr(d.docNumber||''):''}"></div>
       <div class="form-row"><span class="frl">מדינה</span>${countryOptions}</div>
     </div>
 
@@ -1310,7 +1310,7 @@ function openDocForm(docId){
     </div>
 
     <div class="form-section-title">הערות</div>
-    <div class="form-card"><div class="form-block"><textarea id="docNotes" rows="3">${d?d.notes||'':''}</textarea></div></div>
+    <div class="form-card"><div class="form-block"><textarea id="docNotes" rows="3">${d?esc(d.notes||''):''}</textarea></div></div>
 
     <div style="height:6px;"></div>
     <button class="btn btn-blue" onclick="saveDocForm()">שמירה</button>
@@ -1531,18 +1531,18 @@ async function openDocDetail(id){
   const subtitle = [fam?fam.nameHe:'', d.country].filter(Boolean).join(' · ');
   const rowsHtml = rows.map(r=>`
     <div class="d-row">
-      <div class="d-lbl">${r[0]}</div>
-      <div class="d-val"><span class="d-val-inner">${r[1]}</span></div>
+      <div class="d-lbl">${esc(r[0])}</div>
+      <div class="d-val"><span class="d-val-inner">${esc(r[1])}</span></div>
       <button class="copy-pill" data-copy="${escAttr(r[1])}" onclick="copyPillClick(this)">העתק</button>
     </div>`).join('');
   const remLabels = REMINDER_OPTIONS.filter(r=>d.reminders&&d.reminders.includes(r.days)).map(r=>r.label);
   const remText = remLabels.length ? remLabels.join(' · ') : 'אין תזכורות מוגדרות';
   openSheet(`
-    <div class="sheet-header"><h2>${meta.label}</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+    <div class="sheet-header"><h2>${esc(meta.label)}</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
     <div style="text-align:center;">
       <div style="width:44px;height:44px;border-radius:12px;background:${ICON_COLORS[d.type]||ICON_COLORS.other}1E;display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 10px;">${ICON_EMOJI[d.type]||ICON_EMOJI.other}</div>
-      <div style="font-size:22px;font-weight:700;color:var(--label);">${meta.label}</div>
-      ${subtitle?`<div style="font-size:13.5px;color:var(--label3);margin-top:2px;">${subtitle}</div>`:''}
+      <div style="font-size:22px;font-weight:700;color:var(--label);">${esc(meta.label)}</div>
+      ${subtitle?`<div style="font-size:13.5px;color:var(--label3);margin-top:2px;">${esc(subtitle)}</div>`:''}
       <div style="display:inline-block;margin-top:10px;padding:6px 16px;border-radius:20px;background:var(--fill);color:var(--label2);font-size:13px;font-weight:600;">${daysLabel(daysUntil(d.expiryDate))}</div>
     </div>
     <div class="form-card" style="margin-top:18px;padding:2px 14px;">${rowsHtml}</div>
@@ -1593,11 +1593,11 @@ function openImageGallery(){
       const meta = docTypeMeta(d.type);
       const sideLabel = side===2 ? 'צד אחורי' : 'צד קדמי';
       return `<div class="form-row" style="cursor:pointer;" onclick="openGalleryImage('${d.id}',${side})">
-        <span class="frl" style="min-width:0;flex:1;text-align:right;">📷 תמונה ${meta.label} · ${sideLabel}${d.country?' · '+d.country:''}</span>
+        <span class="frl" style="min-width:0;flex:1;text-align:right;">📷 תמונה ${meta.label} · ${sideLabel}${d.country?' · '+esc(d.country):''}</span>
         <span class="chev">‹</span>
       </div>`;
     }).join('');
-    return `<div class="form-section-title">${name}</div><div class="form-card">${rows}</div>`;
+    return `<div class="form-section-title">${esc(name)}</div><div class="form-card">${rows}</div>`;
   }).join('');
   openSheet(`<div class="sheet-header"><h2>כל תמונות המסמכים</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>${html}`);
 }
@@ -1609,7 +1609,7 @@ async function openGalleryImage(id, side){
   const fam = DB.family.find(f=>f.id===d.familyId);
   const fileId = side===2 ? d.imageFileId2 : d.imageFileId;
   const mime = side===2 ? d.imageMime2 : d.imageMime;
-  openSheet(`<div class="sheet-header"><h2>${fam?fam.nameHe+' · ':''}${meta.label}</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+  openSheet(`<div class="sheet-header"><h2>${fam?esc(fam.nameHe)+' · ':''}${esc(meta.label)}</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
     <div id="galleryImgWrap"><div style="text-align:center;color:var(--label3);padding:20px 0;">טוען תמונה...</div></div>`);
   try{
     const encImg = await gasCall('loadEncryptedImage', fileId);
@@ -1731,7 +1731,8 @@ async function loadDocDetailImage(id, side){
     if(el) el.innerHTML = '<div style="text-align:center;color:var(--red);padding:10px 0;font-size:13px;">שגיאה בטעינת התמונה</div>';
   }
 }
-function escAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/\n/g,'&#10;'); }
+function escAttr(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'&#10;'); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function copyText(text, onSuccess){
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(text).then(()=>{ if(onSuccess) onSuccess(); else toast('הועתק ✓'); }).catch(()=>copyFallback(text, onSuccess));
@@ -1763,10 +1764,10 @@ function renderFamilyTab(){
     const famDocs = DB.documents.filter(d=>d.familyId===f.id && !d.archived);
     const count = famDocs.length;
     const urgentCount = famDocs.filter(d=>statusOf(d)==='critical').length;
-    const initials = (f.nameHe||'?').trim().slice(0,2);
+    const initials = esc((f.nameHe||'?').trim().slice(0,2));
     return `<div class="fam-card" onclick="openFamilyDetail('${f.id}')" style="position:relative;">
       <div class="av">${initials}</div>
-      <div style="flex:1;"><div class="fam-name">${f.nameHe}</div><div class="fam-rel">${f.relation} · ${count} מסמכים</div></div>
+      <div style="flex:1;"><div class="fam-name">${esc(f.nameHe)}</div><div class="fam-rel">${esc(f.relation)} · ${count} מסמכים</div></div>
       <span class="chev">‹</span>
       ${urgentCount>0?`<div style="position:absolute;left:14px;top:14px;background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:20px;padding:2px 7px;line-height:1.5;">${urgentCount} דחוף</div>`:''}
     </div>`;
@@ -1827,8 +1828,8 @@ function openFamilyDetail(id){
   const f = DB.family.find(x=>x.id===id);
   const docs = DB.documents.filter(d=>d.familyId===id && !d.archived);
   openSheet(`
-    <div class="sheet-header"><h2>${f.nameHe}</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
-    <div style="font-size:14px;color:var(--label3);margin-bottom:10px;">${f.relation} ${f.nameEn?'· '+f.nameEn:''} ${f.birthDate?'· נולד/ה '+formatDDMMYYYY(f.birthDate):''}</div>
+    <div class="sheet-header"><h2>${esc(f.nameHe)}</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+    <div style="font-size:14px;color:var(--label3);margin-bottom:10px;">${esc(f.relation)} ${f.nameEn?'· '+esc(f.nameEn):''} ${f.birthDate?'· נולד/ה '+formatDDMMYYYY(f.birthDate):''}</div>
     <button class="btn btn-blue" onclick="closeSheet();openDocForm(null);setTimeout(()=>document.getElementById('docFamily').value='${id}',50);">➕ הוספת מסמך</button>
     <button class="btn btn-gray" onclick="openFamilyForm('${id}')">✏️ עריכת פרטים</button>
     <div style="margin-top:10px;">
@@ -1899,7 +1900,7 @@ function renderRelationTypesSettings(){
   const el = document.getElementById('relationTypesGroup');
   const rels = DB.relationTypes && DB.relationTypes.length ? DB.relationTypes : DEFAULT_RELATIONS;
   el.innerHTML = `<div class="chip-tags">` + rels.map(r=>
-    `<div class="tag-chip">${r}${DEFAULT_RELATIONS.includes(r)?'':`<button onclick="removeRelationType('${r}')">✕</button>`}</div>`
+    `<div class="tag-chip">${esc(r)}${DEFAULT_RELATIONS.includes(r)?'':`<button data-val="${escAttr(r)}" onclick="removeRelationType(this.dataset.val)">✕</button>`}</div>`
   ).join('') + `</div>`
     + `<div class="settings-row"><input type="text" id="newRelationInput" placeholder="הוסף קשר חדש (למשל: בן/בת זוג)"><button id="addRelationBtn" onclick="addRelationType()" style="background:none;border:none;color:var(--blue);font-weight:600;font-size:14px;">הוסף</button></div>`;
 }
@@ -1919,7 +1920,7 @@ async function removeRelationType(r){
 function renderCountriesSettings(){
   const el = document.getElementById('countriesGroup');
   el.innerHTML = `<div class="chip-tags">` + DB.countries.map(c=>
-    `<div class="tag-chip">${c}<button onclick="removeCountry('${c}')">✕</button></div>`
+    `<div class="tag-chip">${esc(c)}<button data-val="${escAttr(c)}" onclick="removeCountry(this.dataset.val)">✕</button></div>`
   ).join('') + `</div>`
     + `<div class="settings-row"><input type="text" id="newCountryInput" placeholder="הוסף מדינה חדשה (למשל: ישראל)"><button id="addCountryBtn" onclick="addCountry()" style="background:none;border:none;color:var(--blue);font-weight:600;font-size:14px;">הוסף</button></div>`;
 }
