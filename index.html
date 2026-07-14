@@ -167,10 +167,13 @@ input:checked + .slider:before{transform:translateX(-19px);}
 .d-val-inner{text-align:right;word-break:break-word;}
 .copy-pill{flex-shrink:0;background:var(--fill);border:none;border-radius:20px;padding:6px 14px;font-size:12.5px;font-weight:600;font-family:var(--font);cursor:pointer;color:var(--blue);transition:all .15s;display:inline-flex;align-items:center;gap:4px;}
 .copy-pill.copied{background:rgba(52,199,89,.12);color:#0A7A2E;}
+#offlineBanner{position:fixed;top:0;left:0;right:0;z-index:250;background:var(--orange);color:#fff;font-size:12.5px;font-weight:600;text-align:center;padding:6px 10px;transform:translateY(-100%);transition:transform .25s;}
+#offlineBanner.on{transform:translateY(0);}
 </style>
 </head>
 <body>
 <div id="busyBar"></div>
+<div id="offlineBanner">🔄 אין חיבור כרגע - השינויים נשמרו במכשיר ויסונכרנו אוטומטית כשהחיבור יחזור</div>
 <div id="lock-screen"></div>
 <div id="app" class="hidden">
 
@@ -587,6 +590,16 @@ async function doFirstTimeSetup(){
   }
 }
 
+function afterUnlockSync(){
+  if(getPendingSync()){
+    // יש שינוי מקומי שממתין לשליחה - קודם מנסים לשלוח אותו, לא מושכים גרסה מהשרת
+    // (כדי לא לדרוס את השינוי שעדיין לא הגיע לשרת)
+    setOfflineBanner(true);
+    tryFlushPendingSync();
+  } else {
+    syncDBInBackground();
+  }
+}
 function renderPinEntry(el, deviceInfo){
   let pinBuf = '';
   const hasBio = !!deviceInfo.bio;
@@ -604,7 +617,7 @@ function renderPinEntry(el, deviceInfo){
       await unlockWithBiometric(deviceInfo.bio);
       const usedCache = await loadDBFast();
       unlockApp();
-      if(usedCache) syncDBInBackground();
+      if(usedCache) afterUnlockSync();
     }catch(e){
       document.getElementById('pinSub').textContent = 'Face ID לא אושר, אפשר להזין PIN';
       document.getElementById('pinSub').style.color='var(--red)';
@@ -632,7 +645,7 @@ function renderPinEntry(el, deviceInfo){
         MASTER_KEY = await unwrapMasterKeyWithPin(deviceInfo.wrapped, pinBuf, deviceInfo.pinSalt);
         const usedCache = await loadDBFast();
         unlockApp();
-        if(usedCache) syncDBInBackground();
+        if(usedCache) afterUnlockSync();
       }catch(e){
         if(pinBuf.length===8){
           document.getElementById('pinSub').textContent = 'קוד שגוי, נסו שוב';
@@ -824,7 +837,22 @@ async function persistDB(){
   const wrapper = { salt: DB.salt, payload: await aesEncryptJSON(MASTER_KEY, DB) };
   const wrapperStr = JSON.stringify(wrapper);
   const idx = buildExpiryIndex();
-  const res = await gasCall('saveEncryptedDataAndIndex', wrapperStr, idx, DB._serverTimestamp || null);
+  const baseTimestamp = DB._serverTimestamp || null;
+
+  // מעדכנים מיד את המטמון המקומי - כך גם אם אין רשת בכלל, השינוי לא הולך
+  // לאיבוד בטעינה מחדש של האפליקציה (עדיין לא "מאושר" מהשרת, אבל קיים במכשיר)
+  cacheEncryptedWrapper(wrapperStr, baseTimestamp);
+
+  let res;
+  try{
+    res = await gasCall('saveEncryptedDataAndIndex', wrapperStr, idx, baseTimestamp);
+  }catch(networkErr){
+    // אין חיבור לרשת (או שגיאת תקשורת זמנית) - לא זו "שגיאה" מבחינת המשתמש,
+    // שומרים את השינוי בתור מקומי לשליחה אוטומטית ברגע שהחיבור יחזור
+    setPendingSync({ payload: wrapperStr, idx: idx, baseTimestamp: baseTimestamp, queuedAt: Date.now() });
+    setOfflineBanner(true);
+    return;
+  }
   if(res && res.conflict){
     alert('הנתונים עודכנו בינתיים ממכשיר אחר. כדי לא לדרוס שינויים, האפליקציה תטען מחדש את הנתונים העדכניים ביותר. השינוי האחרון שביצעת כאן לא יישמר - יש לבצע אותו שוב.');
     await loadDB();
@@ -835,7 +863,56 @@ async function persistDB(){
   }
   if(res && res.updated) DB._serverTimestamp = res.updated;
   cacheEncryptedWrapper(wrapperStr, DB._serverTimestamp || null);
+  clearPendingSync();
+  setOfflineBanner(false);
 }
+
+/*************************************************************
+ * תור סנכרון אופליין
+ * כשאין רשת בזמן שמירה, השינוי (שכבר מוצפן) נשמר בתור מקומי
+ * ונשלח לשרת אוטומטית ברגע שהחיבור חוזר - בלי לדרוש מהמשתמש
+ * לעשות שום דבר בעצמו.
+ *************************************************************/
+function getPendingSync(){ return localGet('mdocs_pending_sync'); }
+function setPendingSync(obj){ localSet('mdocs_pending_sync', obj); }
+function clearPendingSync(){ localStorage.removeItem('mdocs_pending_sync'); }
+function setOfflineBanner(on){
+  const el = document.getElementById('offlineBanner');
+  if(el) el.classList.toggle('on', !!on);
+}
+let _flushingSync = false;
+async function tryFlushPendingSync(){
+  const pending = getPendingSync();
+  if(!pending || _flushingSync || !MASTER_KEY) return;
+  _flushingSync = true;
+  try{
+    const res = await gasCall('saveEncryptedDataAndIndex', pending.payload, pending.idx, pending.baseTimestamp, {__silentGasCall:true});
+    if(res && res.conflict){
+      clearPendingSync();
+      setOfflineBanner(false);
+      alert('בזמן שהמכשיר היה לא מקוון, הנתונים עודכנו גם ממכשיר אחר. כדי לא לדרוס שינויים, טוענים את הגרסה העדכנית ביותר מהשרת. השינוי האחרון שביצעת בזמן שהיית לא מקוון לא נשמר - יש לבצע אותו שוב.');
+      await loadDB();
+      renderAll();
+      if(!document.getElementById('tab-settings').classList.contains('hidden')) renderSettingsTab();
+      if(!document.getElementById('tab-family').classList.contains('hidden')) renderFamilyTab();
+      return;
+    }
+    if(res && res.updated){
+      DB._serverTimestamp = res.updated;
+      cacheEncryptedWrapper(pending.payload, res.updated);
+    }
+    clearPendingSync();
+    setOfflineBanner(false);
+    toast('השינויים סונכרנו לשרת ✓');
+  }catch(e){
+    // עדיין אין רשת - ננסה שוב בהמשך (אירוע online / טיימר תקופתי)
+  }finally{
+    _flushingSync = false;
+  }
+}
+window.addEventListener('online', tryFlushPendingSync);
+// לא בכל דפדפן אירוע ה-online אמין ב-100% (למשל מעבר מ-WiFi חלש ל-4G) - בדיקה תקופתית כגיבוי
+setInterval(tryFlushPendingSync, 20000);
 function buildExpiryIndex(){
   return DB.documents.filter(d=>!d.archived && d.expiryDate).map(d=>{
     const fam = DB.family.find(f=>f.id===d.familyId);
@@ -887,6 +964,7 @@ async function loadDBFast(){
   return false;
 }
 async function syncDBInBackground(){
+  if(getPendingSync()) return; // יש שינוי מקומי שעדיין לא נשלח - לא מושכים גרסה מהשרת כרגע
   try{
     const resp = await gasCall('loadEncryptedData');
     if(!resp.exists) return;
