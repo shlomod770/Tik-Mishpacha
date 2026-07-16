@@ -1218,7 +1218,9 @@ document.addEventListener('input', e=>{ if(e.target.id==='searchInput') renderDo
  * והפקת טקסט מסודר אחד להעתקה (בלי לחשוף שום מידע שלא נבחר בפירוש)
  *************************************************************/
 const BULK_EXPORT_FIELDS = [
-  {key:'fullName', label:'שם מלא', scope:'person'},
+  {key:'fullName', label:'שם פרטי', scope:'person'},
+  {key:'lastNameHe', label:'שם משפחה (עברית)', scope:'person'},
+  {key:'lastNameEn', label:'שם משפחה (אנגלית)', scope:'person'},
   {key:'birthDate', label:'תאריך לידה', scope:'person'},
   {key:'docTypeLabel', label:'סוג מסמך', scope:'doc'},
   {key:'docNumber', label:'מספר מסמך', scope:'doc'},
@@ -1284,9 +1286,21 @@ function openBulkExportTool(){
     <div class="form-section-title">4. בחירת שדות להעתקה</div>
     <div class="form-card">${fieldsHtml}</div>
 
+    <div class="form-section-title">5. צורת התצוגה</div>
+    <div class="form-card" style="display:flex;gap:8px;">
+      <button type="button" id="bulkFormatOrganized" class="btn btn-blue" style="flex:1;margin:0;" onclick="setBulkFormat('organized')">📄 מסודר עם כותרות</button>
+      <button type="button" id="bulkFormatPlain" class="btn btn-gray" style="flex:1;margin:0;" onclick="setBulkFormat('plain')">📋 רק נתונים</button>
+    </div>
+
     <button class="btn btn-blue" onclick="generateBulkExport()">📝 הפקת טקסט</button>
     <div id="bulkExportResult"></div>
   `);
+  window._bulkFormatMode = 'organized';
+}
+function setBulkFormat(mode){
+  window._bulkFormatMode = mode;
+  document.getElementById('bulkFormatOrganized').className = 'btn ' + (mode==='organized'?'btn-blue':'btn-gray');
+  document.getElementById('bulkFormatPlain').className = 'btn ' + (mode==='plain'?'btn-blue':'btn-gray');
 }
 function toggleBulkAll(cls, checked){
   document.querySelectorAll('.'+cls).forEach(chk=>{ chk.checked = checked; });
@@ -1296,6 +1310,7 @@ function generateBulkExport(){
   const typeIds = Array.from(document.querySelectorAll('.bulkTypeChk:checked')).map(el=>el.value);
   const countryVals = Array.from(document.querySelectorAll('.bulkCountryChk:checked')).map(el=>el.value);
   const fieldKeys = Array.from(document.querySelectorAll('.bulkFieldChk:checked')).map(el=>el.value);
+  const plain = window._bulkFormatMode === 'plain';
   const resultEl = document.getElementById('bulkExportResult');
 
   if(!personIds.length || !typeIds.length || !fieldKeys.length){
@@ -1305,42 +1320,51 @@ function generateBulkExport(){
   const selectedFields = BULK_EXPORT_FIELDS.filter(f=>fieldKeys.includes(f.key));
   const personFields = selectedFields.filter(f=>f.scope==='person');
   const docFields = selectedFields.filter(f=>f.scope==='doc');
+  const includeName = personFields.some(f=>f.key==='fullName'||f.key==='lastNameHe'||f.key==='lastNameEn');
 
   const blocks = [];
   DB.family.filter(f=>personIds.includes(f.id)).forEach(f=>{
     const lines = [];
-    lines.push('👤 ' + (f.nameHe||''));
+    if(includeName){
+      const nameParts = [];
+      if(personFields.some(pf=>pf.key==='fullName')) nameParts.push(f.nameHe||'');
+      if(personFields.some(pf=>pf.key==='lastNameHe') && f.lastNameHe) nameParts.push(f.lastNameHe);
+      const nameLine = nameParts.filter(Boolean).join(' ');
+      if(nameLine) lines.push(plain ? nameLine : '👤 ' + nameLine);
+      if(personFields.some(pf=>pf.key==='lastNameEn') && f.lastNameEn){
+        lines.push((plain?'':'  ') + 'שם משפחה (אנגלית): ' + f.lastNameEn);
+      }
+    }
     personFields.forEach(pf=>{
-      if(pf.key==='fullName') return; // כבר מוצג בכותרת השורה
-      if(pf.key==='birthDate') lines.push('  ' + pf.label + ': ' + (f.birthDate?formatDDMMYYYY(f.birthDate):'-'));
+      if(pf.key==='birthDate') lines.push((plain?'':'  ') + pf.label + ': ' + (f.birthDate?formatDDMMYYYY(f.birthDate):'-'));
     });
     // סינון לפי מדינה - רק אם נבחרה לפחות מדינה אחת, אחרת כוללים הכל
     const docs = DB.documents.filter(d=>d.familyId===f.id && typeIds.includes(d.type) && !d.archived &&
       (!countryVals.length || countryVals.includes(d.country)));
     if(!docs.length){
-      lines.push('  (אין מסמכים מתאימים)');
+      lines.push((plain?'':'  ') + '(אין מסמכים מתאימים)');
     } else {
       docs.forEach(d=>{
         const meta = docTypeMeta(d.type);
-        lines.push('');
-        lines.push('  🔹 ' + meta.label);
+        if(!plain){ lines.push(''); lines.push('  🔹 ' + meta.label); }
+        else if(docFields.some(df=>df.key==='docTypeLabel')){ lines.push(meta.label); }
         docFields.forEach(df=>{
+          if(df.key==='docTypeLabel') return; // כבר מוצג למעלה
           let val = '-';
-          if(df.key==='docTypeLabel') val = meta.label;
-          else if(df.key==='docNumber') val = d.docNumber || '-';
+          if(df.key==='docNumber') val = d.docNumber || '-';
           else if(df.key==='country') val = d.country || '-';
           else if(df.key==='issueDate') val = d.issueDate ? formatDDMMYYYY(d.issueDate) : '-';
           else if(df.key==='expiryDate') val = d.expiryDate ? formatDDMMYYYY(d.expiryDate) : '-';
           else if(df.key==='notes') val = d.notes || '-';
-          if(df.key==='docTypeLabel') return; // כבר מוצג בכותרת התת-סעיף
-          lines.push('     ' + df.label + ': ' + val);
+          lines.push(plain ? val : ('     ' + df.label + ': ' + val));
         });
       });
     }
     blocks.push(lines.join('\n'));
   });
 
-  const finalText = blocks.join('\n\n' + '—'.repeat(20) + '\n\n');
+  const separator = plain ? '\n' : ('\n\n' + '—'.repeat(20) + '\n\n');
+  const finalText = blocks.join(separator);
   resultEl.innerHTML = `
     <div class="form-section-title">תוצאה</div>
     <div class="form-card">
@@ -1921,10 +1945,12 @@ function openFamilyForm(famId){
     <div class="sheet-header"><h2>${f?'עריכת בן משפחה':'בן משפחה חדש'}</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
     <div class="form-section-title">פרטים אישיים</div>
     <div class="form-card">
-      <div class="form-row"><span class="frl">שם בעברית</span><input type="text" id="famNameHe" value="${f?f.nameHe:''}"></div>
-      <div class="form-row"><span class="frl">שם באנגלית</span><input type="text" id="famNameEn" value="${f?f.nameEn||'':''}"></div>
+      <div class="form-row"><span class="frl">שם פרטי בעברית</span><input type="text" id="famNameHe" value="${f?escAttr(f.nameHe):''}"></div>
+      <div class="form-row"><span class="frl">שם משפחה בעברית</span><input type="text" id="famLastNameHe" value="${f?escAttr(f.lastNameHe||''):''}"></div>
+      <div class="form-row"><span class="frl">שם פרטי באנגלית</span><input type="text" id="famNameEn" value="${f?escAttr(f.nameEn||''):''}"></div>
+      <div class="form-row"><span class="frl">שם משפחה באנגלית</span><input type="text" id="famLastNameEn" value="${f?escAttr(f.lastNameEn||''):''}"></div>
       <div class="form-row"><span class="frl">תאריך לידה</span>${dateFieldHTML('famBirth', f?f.birthDate:'')}</div>
-      <div class="form-row"><span class="frl">קשר משפחתי</span><select id="famRelation">${relOptions.map(r=>`<option ${r===defaultRelation?'selected':''}>${r}</option>`).join('')}</select></div>
+      <div class="form-row"><span class="frl">קשר משפחתי</span><select id="famRelation">${relOptions.map(r=>`<option ${r===defaultRelation?'selected':''}>${esc(r)}</option>`).join('')}</select></div>
     </div>
     <div style="height:6px;"></div>
     <button class="btn btn-blue" onclick="saveFamilyForm()">שמירה</button>
@@ -1939,7 +1965,9 @@ async function saveFamilyForm(){
   if(!nameHe){ toast('יש להזין שם'); window._savingFam=false; return; }
   let f = editingFamId ? DB.family.find(x=>x.id===editingFamId) : { id: 'f_'+Date.now()+'_'+Math.random().toString(36).slice(2,8) };
   f.nameHe = nameHe;
+  f.lastNameHe = document.getElementById('famLastNameHe').value.trim();
   f.nameEn = document.getElementById('famNameEn').value.trim();
+  f.lastNameEn = document.getElementById('famLastNameEn').value.trim();
   f.birthDate = getDateFieldISO('famBirth');
   f.relation = document.getElementById('famRelation').value;
   const isNew = !editingFamId;
