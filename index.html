@@ -1240,6 +1240,13 @@ function openBulkExportTool(){
       <span>${esc(t.label)}</span>
     </label>`).join('');
 
+  const usedCountries = Array.from(new Set(DB.documents.map(d=>d.country).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'he'));
+  const countriesHtml = usedCountries.length ? usedCountries.map(c=>
+    `<label style="display:flex;align-items:center;gap:8px;padding:7px 0;cursor:pointer;">
+      <input type="checkbox" class="bulkCountryChk" value="${escAttr(c)}" style="width:17px;height:17px;">
+      <span>${esc(c)}</span>
+    </label>`).join('') : '<div class="empty-state" style="padding:14px 0;">אין עדיין מדינות במסמכים קיימים</div>';
+
   const fieldsHtml = BULK_EXPORT_FIELDS.map(f=>
     `<label style="display:flex;align-items:center;gap:8px;padding:7px 0;cursor:pointer;">
       <input type="checkbox" class="bulkFieldChk" value="${f.key}" style="width:17px;height:17px;">
@@ -1270,7 +1277,11 @@ function openBulkExportTool(){
       ${typesHtml}
     </div>
 
-    <div class="form-section-title">3. בחירת שדות להעתקה</div>
+    <div class="form-section-title">3. סינון לפי מדינה (אופציונלי)</div>
+    <div style="font-size:12px;color:var(--label3);margin-bottom:8px;">אם לא בוחרים שום מדינה - ייכללו כל המדינות. אם בוחרים - ייכללו רק מסמכים מהמדינות שסומנו (שימושי למשל כשיש כמה תעודות זהות ממדינות שונות).</div>
+    <div class="form-card">${countriesHtml}</div>
+
+    <div class="form-section-title">4. בחירת שדות להעתקה</div>
     <div class="form-card">${fieldsHtml}</div>
 
     <button class="btn btn-blue" onclick="generateBulkExport()">📝 הפקת טקסט</button>
@@ -1283,6 +1294,7 @@ function toggleBulkAll(cls, checked){
 function generateBulkExport(){
   const personIds = Array.from(document.querySelectorAll('.bulkPersonChk:checked')).map(el=>el.value);
   const typeIds = Array.from(document.querySelectorAll('.bulkTypeChk:checked')).map(el=>el.value);
+  const countryVals = Array.from(document.querySelectorAll('.bulkCountryChk:checked')).map(el=>el.value);
   const fieldKeys = Array.from(document.querySelectorAll('.bulkFieldChk:checked')).map(el=>el.value);
   const resultEl = document.getElementById('bulkExportResult');
 
@@ -1302,7 +1314,9 @@ function generateBulkExport(){
       if(pf.key==='fullName') return; // כבר מוצג בכותרת השורה
       if(pf.key==='birthDate') lines.push('  ' + pf.label + ': ' + (f.birthDate?formatDDMMYYYY(f.birthDate):'-'));
     });
-    const docs = DB.documents.filter(d=>d.familyId===f.id && typeIds.includes(d.type) && !d.archived);
+    // סינון לפי מדינה - רק אם נבחרה לפחות מדינה אחת, אחרת כוללים הכל
+    const docs = DB.documents.filter(d=>d.familyId===f.id && typeIds.includes(d.type) && !d.archived &&
+      (!countryVals.length || countryVals.includes(d.country)));
     if(!docs.length){
       lines.push('  (אין מסמכים מתאימים)');
     } else {
