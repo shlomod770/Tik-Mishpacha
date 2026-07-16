@@ -179,7 +179,7 @@ input:checked + .slider:before{transform:translateX(-19px);}
 
   <!-- ===== TAB: מסמכים ===== -->
   <div id="tab-docs" class="tab-page">
-    <div class="top-header"><h1>מסמכים</h1></div>
+    <div class="top-header" style="display:flex;align-items:center;justify-content:space-between;"><h1>מסמכים</h1><button onclick="openBulkExportTool()" style="background:var(--fill);border:none;border-radius:16px;padding:7px 12px;font-size:12.5px;font-weight:600;font-family:var(--font);color:var(--blue);cursor:pointer;">📋 העתקה מרוכזת</button></div>
     <div class="search-wrap"><input class="search-input" id="searchInput" type="text" placeholder="🔍 חיפוש לפי שם, סוג, מדינה, מספר, הערות..."></div>
     <div class="pills" id="pills"></div>
     <div class="chips" id="statusChips"></div>
@@ -1213,6 +1213,129 @@ function setStatusFilter(s){ currentFilter.status=s; renderDocsTab(); }
 function clearFilters(){ currentFilter={status:'all',types:[],countries:[],people:[],archive:false}; document.getElementById('searchInput').value=''; renderDocsTab(); }
 document.addEventListener('input', e=>{ if(e.target.id==='searchInput') renderDocsTab(); });
 
+/*************************************************************
+ * כלי העתקה מרוכזת - בחירת אנשים + סוגי מסמכים + שדות ספציפיים,
+ * והפקת טקסט מסודר אחד להעתקה (בלי לחשוף שום מידע שלא נבחר בפירוש)
+ *************************************************************/
+const BULK_EXPORT_FIELDS = [
+  {key:'fullName', label:'שם מלא', scope:'person'},
+  {key:'birthDate', label:'תאריך לידה', scope:'person'},
+  {key:'docTypeLabel', label:'סוג מסמך', scope:'doc'},
+  {key:'docNumber', label:'מספר מסמך', scope:'doc'},
+  {key:'country', label:'מדינה', scope:'doc'},
+  {key:'issueDate', label:'תאריך הנפקה', scope:'doc'},
+  {key:'expiryDate', label:'תוקף', scope:'doc'},
+  {key:'notes', label:'הערות', scope:'doc'}
+];
+function openBulkExportTool(){
+  const peopleHtml = DB.family.map(f=>
+    `<label style="display:flex;align-items:center;gap:8px;padding:7px 0;cursor:pointer;">
+      <input type="checkbox" class="bulkPersonChk" value="${f.id}" style="width:17px;height:17px;">
+      <span>${esc(f.nameHe)}</span>
+    </label>`).join('') || '<div class="empty-state" style="padding:14px 0;">אין עדיין בני משפחה במערכת</div>';
+
+  const typesHtml = DOC_TYPES.map(t=>
+    `<label style="display:flex;align-items:center;gap:8px;padding:7px 0;cursor:pointer;">
+      <input type="checkbox" class="bulkTypeChk" value="${t.id}" style="width:17px;height:17px;">
+      <span>${esc(t.label)}</span>
+    </label>`).join('');
+
+  const fieldsHtml = BULK_EXPORT_FIELDS.map(f=>
+    `<label style="display:flex;align-items:center;gap:8px;padding:7px 0;cursor:pointer;">
+      <input type="checkbox" class="bulkFieldChk" value="${f.key}" style="width:17px;height:17px;">
+      <span>${esc(f.label)}</span>
+    </label>`).join('');
+
+  openSheet(`
+    <div class="sheet-header"><h2>📋 העתקה מרוכזת</h2><button class="sheet-close" onclick="closeSheet()">✕</button></div>
+    <div style="font-size:12.5px;color:var(--label3);margin-bottom:12px;">בוחרים בדיוק אילו אנשים, אילו סוגי מסמכים ואילו שדות לכלול - שום דבר מעבר לזה לא ייכלל בטקסט שיופק.</div>
+
+    <div class="form-section-title">1. בחירת אנשים</div>
+    <div class="form-card">
+      <label style="display:flex;align-items:center;gap:8px;padding:7px 0;cursor:pointer;font-weight:600;">
+        <input type="checkbox" id="bulkPeopleAll" onchange="toggleBulkAll('bulkPersonChk', this.checked)" style="width:17px;height:17px;">
+        <span>בחר הכל</span>
+      </label>
+      <div style="border-top:1px solid var(--sep,#e5e5ea);margin:4px 0 6px;"></div>
+      ${peopleHtml}
+    </div>
+
+    <div class="form-section-title">2. בחירת סוגי מסמכים</div>
+    <div class="form-card">
+      <label style="display:flex;align-items:center;gap:8px;padding:7px 0;cursor:pointer;font-weight:600;">
+        <input type="checkbox" id="bulkTypesAll" onchange="toggleBulkAll('bulkTypeChk', this.checked)" style="width:17px;height:17px;">
+        <span>בחר הכל</span>
+      </label>
+      <div style="border-top:1px solid var(--sep,#e5e5ea);margin:4px 0 6px;"></div>
+      ${typesHtml}
+    </div>
+
+    <div class="form-section-title">3. בחירת שדות להעתקה</div>
+    <div class="form-card">${fieldsHtml}</div>
+
+    <button class="btn btn-blue" onclick="generateBulkExport()">📝 הפקת טקסט</button>
+    <div id="bulkExportResult"></div>
+  `);
+}
+function toggleBulkAll(cls, checked){
+  document.querySelectorAll('.'+cls).forEach(chk=>{ chk.checked = checked; });
+}
+function generateBulkExport(){
+  const personIds = Array.from(document.querySelectorAll('.bulkPersonChk:checked')).map(el=>el.value);
+  const typeIds = Array.from(document.querySelectorAll('.bulkTypeChk:checked')).map(el=>el.value);
+  const fieldKeys = Array.from(document.querySelectorAll('.bulkFieldChk:checked')).map(el=>el.value);
+  const resultEl = document.getElementById('bulkExportResult');
+
+  if(!personIds.length || !typeIds.length || !fieldKeys.length){
+    resultEl.innerHTML = '<div class="empty-state" style="padding:14px 0;">יש לבחור לפחות אדם אחד, סוג מסמך אחד ושדה אחד להפקת הטקסט</div>';
+    return;
+  }
+  const selectedFields = BULK_EXPORT_FIELDS.filter(f=>fieldKeys.includes(f.key));
+  const personFields = selectedFields.filter(f=>f.scope==='person');
+  const docFields = selectedFields.filter(f=>f.scope==='doc');
+
+  const blocks = [];
+  DB.family.filter(f=>personIds.includes(f.id)).forEach(f=>{
+    const lines = [];
+    lines.push('👤 ' + (f.nameHe||''));
+    personFields.forEach(pf=>{
+      if(pf.key==='fullName') return; // כבר מוצג בכותרת השורה
+      if(pf.key==='birthDate') lines.push('  ' + pf.label + ': ' + (f.birthDate?formatDDMMYYYY(f.birthDate):'-'));
+    });
+    const docs = DB.documents.filter(d=>d.familyId===f.id && typeIds.includes(d.type) && !d.archived);
+    if(!docs.length){
+      lines.push('  (אין מסמכים מתאימים)');
+    } else {
+      docs.forEach(d=>{
+        const meta = docTypeMeta(d.type);
+        lines.push('');
+        lines.push('  🔹 ' + meta.label);
+        docFields.forEach(df=>{
+          let val = '-';
+          if(df.key==='docTypeLabel') val = meta.label;
+          else if(df.key==='docNumber') val = d.docNumber || '-';
+          else if(df.key==='country') val = d.country || '-';
+          else if(df.key==='issueDate') val = d.issueDate ? formatDDMMYYYY(d.issueDate) : '-';
+          else if(df.key==='expiryDate') val = d.expiryDate ? formatDDMMYYYY(d.expiryDate) : '-';
+          else if(df.key==='notes') val = d.notes || '-';
+          if(df.key==='docTypeLabel') return; // כבר מוצג בכותרת התת-סעיף
+          lines.push('     ' + df.label + ': ' + val);
+        });
+      });
+    }
+    blocks.push(lines.join('\n'));
+  });
+
+  const finalText = blocks.join('\n\n' + '—'.repeat(20) + '\n\n');
+  resultEl.innerHTML = `
+    <div class="form-section-title">תוצאה</div>
+    <div class="form-card">
+      <textarea id="bulkExportText" rows="12" readonly style="width:100%;border:none;background:transparent;font-family:var(--font);font-size:13px;direction:rtl;resize:vertical;"></textarea>
+    </div>
+    <button class="btn btn-blue" onclick="copyText(document.getElementById('bulkExportText').value)">📋 העתק לקליפבורד</button>
+  `;
+  document.getElementById('bulkExportText').value = finalText;
+}
 function openArchive(){ currentFilter.archive = true; renderDocsTab(); openSheet(`
   <div class="sheet-header"><h2>🗄️ ארכיון</h2><button class="sheet-close" onclick="closeArchiveSheet()">✕</button></div>
   <div id="archiveList"></div>`);
