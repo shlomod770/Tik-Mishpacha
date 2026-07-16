@@ -1218,9 +1218,10 @@ document.addEventListener('input', e=>{ if(e.target.id==='searchInput') renderDo
  * והפקת טקסט מסודר אחד להעתקה (בלי לחשוף שום מידע שלא נבחר בפירוש)
  *************************************************************/
 const BULK_EXPORT_FIELDS = [
-  {key:'fullName', label:'שם פרטי', scope:'person'},
-  {key:'lastNameHe', label:'שם משפחה (עברית)', scope:'person'},
-  {key:'lastNameEn', label:'שם משפחה (אנגלית)', scope:'person'},
+  {key:'firstNameHe', label:'שם פרטי בעברית', scope:'person'},
+  {key:'firstNameEn', label:'שם פרטי באנגלית', scope:'person'},
+  {key:'lastNameHe', label:'שם משפחה בעברית', scope:'person'},
+  {key:'lastNameEn', label:'שם משפחה באנגלית', scope:'person'},
   {key:'birthDate', label:'תאריך לידה', scope:'person'},
   {key:'docTypeLabel', label:'סוג מסמך', scope:'doc'},
   {key:'docNumber', label:'מספר מסמך', scope:'doc'},
@@ -1320,29 +1321,47 @@ function generateBulkExport(){
   const selectedFields = BULK_EXPORT_FIELDS.filter(f=>fieldKeys.includes(f.key));
   const personFields = selectedFields.filter(f=>f.scope==='person');
   const docFields = selectedFields.filter(f=>f.scope==='doc');
-  const includeName = personFields.some(f=>f.key==='fullName'||f.key==='lastNameHe'||f.key==='lastNameEn');
+  const hasNameField = personFields.some(f=>['firstNameHe','firstNameEn','lastNameHe','lastNameEn'].includes(f.key));
+
+  const personFieldValue = (f, key)=>{
+    if(key==='firstNameHe') return f.nameHe || '';
+    if(key==='firstNameEn') return f.nameEn || '';
+    if(key==='lastNameHe') return f.lastNameHe || '';
+    if(key==='lastNameEn') return f.lastNameEn || '';
+    if(key==='birthDate') return f.birthDate ? formatDDMMYYYY(f.birthDate) : '';
+    return '';
+  };
 
   const blocks = [];
   DB.family.filter(f=>personIds.includes(f.id)).forEach(f=>{
     const lines = [];
-    if(includeName){
-      const nameParts = [];
-      if(personFields.some(pf=>pf.key==='fullName')) nameParts.push(f.nameHe||'');
-      if(personFields.some(pf=>pf.key==='lastNameHe') && f.lastNameHe) nameParts.push(f.lastNameHe);
-      const nameLine = nameParts.filter(Boolean).join(' ');
-      if(nameLine) lines.push(plain ? nameLine : '👤 ' + nameLine);
-      if(personFields.some(pf=>pf.key==='lastNameEn') && f.lastNameEn){
-        lines.push((plain?'':'  ') + 'שם משפחה (אנגלית): ' + f.lastNameEn);
-      }
+    // כותרת: שם עברי (פרטי+משפחה) אם נבחר, אחרת שם באנגלית אם נבחר - כדי שתמיד יהיה מזהה ברור לקבוצה בתצוגה המסודרת
+    if(!plain && hasNameField){
+      const heParts = [], enParts = [];
+      if(personFields.some(pf=>pf.key==='firstNameHe')) heParts.push(f.nameHe||'');
+      if(personFields.some(pf=>pf.key==='lastNameHe')) heParts.push(f.lastNameHe||'');
+      if(personFields.some(pf=>pf.key==='firstNameEn')) enParts.push(f.nameEn||'');
+      if(personFields.some(pf=>pf.key==='lastNameEn')) enParts.push(f.lastNameEn||'');
+      const heLine = heParts.filter(Boolean).join(' ');
+      const enLine = enParts.filter(Boolean).join(' ');
+      if(heLine) lines.push('👤 ' + heLine + (enLine ? ' (' + enLine + ')' : ''));
+      else if(enLine) lines.push('👤 ' + enLine);
+    } else if(plain){
+      // במצב "רק נתונים" כל שדה שנבחר מודפס כשורה נפרדת, ללא כותרות/תוויות כלל
+      personFields.filter(pf=>['firstNameHe','firstNameEn','lastNameHe','lastNameEn'].includes(pf.key)).forEach(pf=>{
+        const v = personFieldValue(f, pf.key);
+        if(v) lines.push(v);
+      });
     }
-    personFields.forEach(pf=>{
-      if(pf.key==='birthDate') lines.push((plain?'':'  ') + pf.label + ': ' + (f.birthDate?formatDDMMYYYY(f.birthDate):'-'));
+    personFields.filter(pf=>pf.key==='birthDate').forEach(pf=>{
+      const v = personFieldValue(f, 'birthDate');
+      if(v) lines.push(plain ? v : ('  ' + pf.label + ': ' + v));
     });
     // סינון לפי מדינה - רק אם נבחרה לפחות מדינה אחת, אחרת כוללים הכל
     const docs = DB.documents.filter(d=>d.familyId===f.id && typeIds.includes(d.type) && !d.archived &&
       (!countryVals.length || countryVals.includes(d.country)));
     if(!docs.length){
-      lines.push((plain?'':'  ') + '(אין מסמכים מתאימים)');
+      if(!plain) lines.push('  (אין מסמכים מתאימים)');
     } else {
       docs.forEach(d=>{
         const meta = docTypeMeta(d.type);
@@ -1680,7 +1699,9 @@ async function openDocDetail(id){
   }
   const rows = [
     ['שם', fam?fam.nameHe:''],
+    ['שם משפחה', fam?fam.lastNameHe:''],
     ['שם באנגלית', fam?fam.nameEn:''],
+    ['שם משפחה באנגלית', fam?fam.lastNameEn:''],
     ['תאריך לידה', fam&&fam.birthDate?formatDDMMYYYY(fam.birthDate):''],
     ['מספר מסמך', d.docNumber],
     ['מדינה', d.country],
@@ -1688,7 +1709,7 @@ async function openDocDetail(id){
     ['תאריך תפוגה', formatDDMMYYYY(d.expiryDate)],
     ['הערות', d.notes]
   ].filter(r=>r[1]);
-  const allText = [['שם', fam?fam.nameHe:''],['סוג מסמך', meta.label],...rows.slice(1)].filter(r=>r[1]).map(r=>r[0]+': '+r[1]).join('\n');
+  const allText = [['שם', fam?fam.nameHe:''],['סוג מסמך', meta.label],...rows.filter(r=>r[0]!=='שם')].filter(r=>r[1]).map(r=>r[0]+': '+r[1]).join('\n');
   const subtitle = [fam?fam.nameHe:'', d.country].filter(Boolean).join(' · ');
   const rowsHtml = rows.map(r=>`
     <div class="d-row">
