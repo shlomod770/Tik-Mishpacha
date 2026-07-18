@@ -32,10 +32,19 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>הקמת חשבון אישי 🚀</h1>
-  <div class="sub">התחברות עם גוגל - והחשבון האישי שלכם (בענן שלכם, פרטי לגמרי) יוקם אוטומטית תוך כמה שניות.</div>
+  <h1>הקמת חשבון פרטי בענן שלכם ☁️</h1>
+  <div class="sub">האפליקציה בנויה כך שהמידע שלכם - המסמכים, התאריכים, כל הפרטים הרגישים - נשמר <b>אך ורק בחשבון הגוגל שלכם</b>, מוצפן, ואף אחד אחר (גם לא מי ששלח לכם את הקישור הזה) לא יכול לגשת אליו.</div>
 
-  <div class="warn">⚠️ בשלב ההתחברות ייתכן שתראו מסך של גוגל שכתוב עליו "האפליקציה הזו לא מאומתת". זה תקין וצפוי (האפליקציה קטנה ופרטית ולא עברה תהליך אימות רשמי מול גוגל) - לוחצים <b>Advanced / מתקדם</b> ואז <b>Go to... (unsafe) / המשך</b>. הקוד עצמו ידוע ובטוח - אפשר לבדוק אותו בקובץ Code.gs.</div>
+  <div class="card" style="font-size:13.5px;line-height:1.7;">
+    <div style="font-weight:700;margin-bottom:8px;">מה עומד לקרות כשתלחצו על הכפתור:</div>
+    <ol style="margin:0;padding-inline-start:20px;">
+      <li>תתחברו עם חשבון הגוגל שלכם (בדיוק כמו התחברות לכל אתר אחר).</li>
+      <li>המערכת תפתח בשבילכם, אוטומטית, "תיקייה" קטנה ופרטית בחשבון שלכם - זה המקום שבו יישמרו המסמכים שלכם, מוצפנים.</li>
+      <li>בסוף התהליך תקבלו כתובת קצרה. פשוט תעתיקו אותה - תצטרכו להדביק אותה במסך הראשון של האפליקציה עצמה, בשלב הבא.</li>
+    </ol>
+  </div>
+
+  <div class="warn">⚠️ ייתכן שבדרך תראו מסך של גוגל שכתוב עליו "האפליקציה הזו לא מאומתת" (Google hasn't verified this app). זה תקין לגמרי ואין מה לדאוג - זו רק אפליקציה קטנה ופרטית שלא עברה את התהליך הפורמלי (והיקר) של אימות רשמי מול גוגל, אבל היא בטוחה לשימוש. פשוט לוחצים <b>Advanced</b> (או "מתקדם") ואז <b>Go to... (unsafe)</b> כדי להמשיך.</div>
 
   <div class="card" id="loginCard">
     <button class="btn-google" id="googleLoginBtn">
@@ -46,17 +55,17 @@
 
   <div class="card hidden" id="progressCard">
     <div class="step" id="stepAuth"><div class="step-icon">1</div><div class="step-label">אימות מול גוגל</div></div>
-    <div class="step" id="stepCreate"><div class="step-icon">2</div><div class="step-label">יצירת פרויקט אישי</div></div>
-    <div class="step" id="stepUpload"><div class="step-icon">3</div><div class="step-label">העלאת קוד השרת</div></div>
-    <div class="step" id="stepVersion"><div class="step-icon">4</div><div class="step-label">שמירת גרסה</div></div>
-    <div class="step" id="stepDeploy"><div class="step-icon">5</div><div class="step-label">פריסה (Deploy)</div></div>
+    <div class="step" id="stepCreate"><div class="step-icon">2</div><div class="step-label">יצירת חשבון אחסון פרטי</div></div>
+    <div class="step" id="stepUpload"><div class="step-icon">3</div><div class="step-label">הגדרת ההצפנה</div></div>
+    <div class="step" id="stepVersion"><div class="step-icon">4</div><div class="step-label">שמירה</div></div>
+    <div class="step" id="stepDeploy"><div class="step-icon">5</div><div class="step-label">סיום הקמה</div></div>
   </div>
 
   <div class="card hidden" id="resultCard">
-    <div style="font-weight:700;font-size:15px;margin-bottom:8px;">🎉 הכתובת האישית שלכם מוכנה</div>
+    <div style="font-weight:700;font-size:15px;margin-bottom:8px;">🎉 החשבון הפרטי שלכם מוכן</div>
     <div class="url-box" id="resultUrl"></div>
     <button class="btn-blue" id="copyUrlBtn">📋 העתקת הכתובת</button>
-    <div style="font-size:12.5px;color:var(--label3);margin-top:10px;">הדביקו את הכתובת הזו במסך הראשון של אפליקציית מסמכי משפחה.</div>
+    <div style="font-size:12.5px;color:var(--label3);margin-top:10px;">שלב אחרון: פתחו את קישור האפליקציה שקיבלתם, והדביקו שם את הכתובת הזו במסך הראשון.</div>
   </div>
 
   <div class="card hidden" id="errorCard">
@@ -64,30 +73,15 @@
     <div id="errorMsg" style="font-size:13px;color:var(--label3);"></div>
     <button class="btn-blue" onclick="location.reload()">ניסיון חוזר</button>
   </div>
-
-  <details class="card">
-    <summary style="cursor:pointer;font-weight:600;font-size:13.5px;">🔧 הגדרות חד-פעמיות למפתח (לפני שליחת הקישור למשתמשים)</summary>
-    <div class="dev-setup" style="margin-top:10px;">
-      כדי שכפתור "התחברות עם Google" הזה יעבוד בכלל, המפתח (מי שמארח את הכלי הזה) צריך להכין פעם אחת, במחשב:
-      <ol>
-        <li>נכנסים ל-<code>console.cloud.google.com</code>, יוצרים פרויקט חדש.</li>
-        <li>בתפריט "APIs &amp; Services" → "Library" → מחפשים ומפעילים (Enable) את <code>Apps Script API</code>.</li>
-        <li>"APIs &amp; Services" → "OAuth consent screen" - בוחרים External, ממלאים שם אפליקציה + מייל, ומוסיפים את ה-scopes: <code>script.projects</code> ו-<code>script.deployments</code>. משאירים את האפליקציה במצב Testing ומוסיפים את כתובות המייל של המשתמשים כ-Test users (זה מה שגורם למסך "לא מאומת" - אפשר לעבור אימות רשמי בעתיד כדי להעלים אותו).</li>
-        <li>"APIs &amp; Services" → "Credentials" → "Create Credentials" → "OAuth client ID" → סוג <b>Web application</b>. תחת "Authorized JavaScript origins" מוסיפים את הכתובת שבה הקובץ הזה מתארח (למשל כתובת GitHub Pages שלכם).</li>
-        <li>מעתיקים את ה-<b>Client ID</b> שנוצר, ומדביקים אותו למטה בקוד הזה במקום <code>YOUR_CLIENT_ID_HERE</code>.</li>
-      </ol>
-      זה שלב חד-פעמי; אחריו כל משתמש שתשלחו לו את הקישור פשוט לוחץ "התחברות עם Google" ומקבל כתובת מוכנה.
-    </div>
-  </details>
 </div>
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 // ============================================================
 // הגדרת המפתח - יש להחליף בכתובת Client ID אמיתית מ-Google Cloud Console
-// (ראו הסבר מתחת ל"הגדרות חד-פעמיות למפתח" למעלה בעמוד)
+// (הוגדר על ידי מי שהקים את הכלי - אין צורך לגעת בזה כמשתמש קצה)
 // ============================================================
-const GOOGLE_CLIENT_ID = '773654114791-ofcp7db8c635gjn5mu5n81qmp4gvg0vd.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/script.projects https://www.googleapis.com/auth/script.deployments';
 
 const CODE_GS_SOURCE = `/*************************************************************
@@ -439,7 +433,7 @@ document.getElementById('googleLoginBtn').addEventListener('click', startFlow);
 
 function startFlow(){
   if(GOOGLE_CLIENT_ID.indexOf('YOUR_CLIENT_ID_HERE') !== -1){
-    showError('הכלי הזה עדיין לא הוגדר על ידי המפתח (חסר Client ID אמיתי). פתחו את "הגדרות חד-פעמיות למפתח" למטה בעמוד.');
+    showError('הכלי הזה עדיין לא מוגדר סופית. יש לפנות למי ששלח לכם את הקישור.');
     return;
   }
   const tokenClient = google.accounts.oauth2.initTokenClient({
@@ -528,7 +522,18 @@ function showError(msg){
   document.getElementById('progressCard').classList.add('hidden');
   document.getElementById('loginCard').classList.add('hidden');
   document.getElementById('errorCard').classList.remove('hidden');
-  document.getElementById('errorMsg').textContent = msg;
+
+  if(msg && msg.indexOf('has not enabled the Apps Script API') !== -1){
+    document.getElementById('errorMsg').innerHTML =
+      'זו לא תקלה - זו הגדרה אישית חד-פעמית שגוגל דורשת מכל חשבון (בנפרד מכל מה שהגדרנו כבר), לפני שהוא יכול ליצור פרויקטים דרך הכלי הזה.<br><br>' +
+      '<b>מה לעשות:</b><br>' +
+      '1. פותחים: <a href="https://script.google.com/home/usersettings" target="_blank">script.google.com/home/usersettings</a><br>' +
+      '2. מדליקים את המתג "Google Apps Script API"<br>' +
+      '3. חוזרים לכאן ולוחצים "ניסיון חוזר" למטה<br><br>' +
+      'זה חד-פעמי לגמרי לכל חשבון גוגל - אחרי שהודלק פעם אחת, זה לא יופיע שוב לעולם, גם לא בפרויקטים אחרים.';
+  } else {
+    document.getElementById('errorMsg').textContent = msg;
+  }
 }
 </script>
 </body>
