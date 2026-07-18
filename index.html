@@ -758,6 +758,338 @@ setInterval(()=>{
  *************************************************************/
 // כתובת ה-Web App של גוגל אפס-סקריפט - כל משתמש שומר כאן את הכתובת הפרטית שלו (מסך הגדרה ראשונית)
 var CONFIG_KEY = 'mdocs_apps_script_url';
+const EMBEDDED_CODE_GS = `/*************************************************************
+ * מסמכי משפחה - קוד שרת (Google Apps Script)
+ * ------------------------------------------------------------
+ * כל הנתונים הרגישים (שמות, מספרי מסמכים, תמונות, הערות)
+ * מוצפנים כבר בצד המשתמש (בדפדפן) לפני שהם מגיעים לכאן.
+ * השרת הזה רק שומר/מחזיר בלוקים מוצפנים - הוא לא יודע לפענח אותם.
+ *
+ * יוצא מן הכלל אחד ויחיד: קובץ "אינדקס תפוגה" קטן וגלוי
+ * (לא מוצפן) שמכיל רק: תאריך תפוגה + סוג מסמך + שם פרטי.
+ * זה נחוץ כדי שהשרת יוכל לבדוק כל יום אילו מסמכים עומדים
+ * לפוג ולשלוח מייל תזכורת - בלי זה אין דרך לשלוח תזכורות
+ * אוטומטיות כי אף אחד חוץ מהמשתמש לא מכיר את מפתח ההצפנה.
+ *************************************************************/
+
+var ROOT_FOLDER_NAME = 'MishpachaDocs_Data';
+var DATA_FILE_NAME = 'data.enc.json';       // כל הנתונים המוצפנים
+var INDEX_FILE_NAME = 'expiry_index.json';  // תאריכים גלויים בלבד
+var IMAGES_FOLDER_NAME = 'images';
+var SETTINGS_PROP_EMAIL = 'reminderEmail';
+
+function doGet() {
+  // כבר לא משמש להצגת האפליקציה (עברה ל-GitHub Pages / Firebase Hosting),
+  // אבל נשאר כדי שאפשר לבדוק בדפדפן שה-Web App פעיל.
+  return ContentService.createTextOutput('Apps Script API is running.');
+}
+
+/* ---------- API חיצוני: כל הקריאות מהאתר העצמאי עוברות דרך כאן ---------- */
+
+// רשימת הפונקציות שמותר לקרוא להן מבחוץ - "רשימה לבנה" מטעמי אבטחה
+var ALLOWED_FUNCTIONS_ = {
+  saveEncryptedData: saveEncryptedData,
+  saveEncryptedDataAndIndex: saveEncryptedDataAndIndex,
+  loadEncryptedData: loadEncryptedData,
+  saveEncryptedImage: saveEncryptedImage,
+  loadEncryptedImage: loadEncryptedImage,
+  deleteEncryptedImage: deleteEncryptedImage,
+  setReminderEmail: setReminderEmail,
+  getReminderEmail: getReminderEmail,
+  sendStatusNow: sendStatusNow,
+  ensureDailyTrigger: ensureDailyTrigger,
+  exportBackup: exportBackup,
+  importBackup: importBackup
+};
+
+function doPost(e) {
+  var out;
+  try {
+    var body = JSON.parse(e.postData.contents);
+    var fn = ALLOWED_FUNCTIONS_[body.fn];
+    if (!fn) throw new Error('Unknown function: ' + body.fn);
+    var args = body.args || [];
+    var result = fn.apply(null, args);
+    out = JSON.stringify(result === undefined ? { ok: true } : result);
+  } catch (err) {
+    out = JSON.stringify({ __error: String(err && err.message ? err.message : err) });
+  }
+  return ContentService.createTextOutput(out).setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ---------- תיקיות ---------- */
+
+function getRootFolder_() {
+  var it = DriveApp.getFoldersByName(ROOT_FOLDER_NAME);
+  if (it.hasNext()) return it.next();
+  return DriveApp.createFolder(ROOT_FOLDER_NAME);
+}
+
+function getImagesFolder_() {
+  var root = getRootFolder_();
+  var it = root.getFoldersByName(IMAGES_FOLDER_NAME);
+  if (it.hasNext()) return it.next();
+  return root.createFolder(IMAGES_FOLDER_NAME);
+}
+
+function getOrCreateFile_(folder, name, defaultContent) {
+  var it = folder.getFilesByName(name);
+  if (it.hasNext()) return it.next();
+  return folder.createFile(name, defaultContent, MimeType.PLAIN_TEXT);
+}
+
+/* ---------- נתונים מוצפנים (הבלוק הראשי) ---------- */
+
+// encryptedPayload - מגיע כבר מוצפן מהדפדפן (מחרוזת base64)
+// expectedTimestamp - חותמת הזמן שהלקוח ידע עליה כשטען את הנתונים (למניעת דריסה בין מכשירים)
+function saveEncryptedData(encryptedPayload, expectedTimestamp) {
+  var folder = getRootFolder_();
+  var it = folder.getFilesByName(DATA_FILE_NAME);
+  var file;
+  if (it.hasNext()) {
+    file = it.next();
+    if (expectedTimestamp != null) {
+      var currentTs = file.getLastUpdated().getTime();
+      if (currentTs > expectedTimestamp) {
+        return { ok: false, conflict: true, serverTimestamp: currentTs };
+      }
+    }
+    file.setContent(encryptedPayload);
+  } else {
+    file = folder.createFile(DATA_FILE_NAME, encryptedPayload, MimeType.PLAIN_TEXT);
+  }
+  return { ok: true, updated: file.getLastUpdated().getTime() };
+}
+
+// שמירה משולבת (נתונים מוצפנים + אינדקס תפוגה) בקריאה אחת - מהיר יותר, עם בדיקת התנגשות
+function saveEncryptedDataAndIndex(encryptedPayload, indexArray, expectedTimestamp) {
+  var res = saveEncryptedData(encryptedPayload, expectedTimestamp);
+  if (!res.ok) return res; // התנגשות - לא שומרים את האינדקס גם כן
+  saveExpiryIndex(indexArray);
+  return res;
+}
+
+function loadEncryptedData() {
+  var folder = getRootFolder_();
+  var it = folder.getFilesByName(DATA_FILE_NAME);
+  if (!it.hasNext()) return { exists: false, payload: null, updated: null };
+  var file = it.next();
+  return { exists: true, payload: file.getBlob().getDataAsString(), updated: file.getLastUpdated().getTime() };
+}
+
+/* ---------- תמונות מוצפנות ---------- */
+
+// encryptedBase64 - כבר מוצפן בצד הלקוח
+function saveEncryptedImage(fileId, encryptedBase64) {
+  var folder = getImagesFolder_();
+  var name = (fileId || Utilities.getUuid()) + '.enc';
+  var it = folder.getFilesByName(name);
+  var file;
+  if (it.hasNext()) {
+    file = it.next();
+    file.setContent(encryptedBase64);
+  } else {
+    file = folder.createFile(name, encryptedBase64, MimeType.PLAIN_TEXT);
+  }
+  return { fileId: name };
+}
+
+function loadEncryptedImage(fileId) {
+  var folder = getImagesFolder_();
+  var it = folder.getFilesByName(fileId);
+  if (!it.hasNext()) return null;
+  return it.next().getBlob().getDataAsString();
+}
+
+function deleteEncryptedImage(fileId) {
+  var folder = getImagesFolder_();
+  var it = folder.getFilesByName(fileId);
+  if (it.hasNext()) it.next().setTrashed(true);
+  return { ok: true };
+}
+
+/* ---------- אינדקס תפוגה גלוי (לצורך תזכורות בלבד) ----------
+   מבנה כל רשומה: { id, firstName, docType, country, expiryDate: 'YYYY-MM-DD', reminders: [ימים לפני], sentDays: [] }
+   בלי שם משפחה, בלי מספר מסמך, בלי תמונה, בלי הערות.
+*/
+
+function saveExpiryIndex(indexArray) {
+  var folder = getRootFolder_();
+  var file = getOrCreateFile_(folder, INDEX_FILE_NAME, '[]');
+  file.setContent(JSON.stringify(indexArray));
+  return { ok: true };
+}
+
+function loadExpiryIndex_() {
+  var folder = getRootFolder_();
+  var it = folder.getFilesByName(INDEX_FILE_NAME);
+  if (!it.hasNext()) return [];
+  try {
+    return JSON.parse(it.next().getBlob().getDataAsString() || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+/* ---------- הגדרות מייל ---------- */
+
+function setReminderEmail(email) {
+  PropertiesService.getUserProperties().setProperty(SETTINGS_PROP_EMAIL, email);
+  return { ok: true };
+}
+
+function getReminderEmail() {
+  return PropertiesService.getUserProperties().getProperty(SETTINGS_PROP_EMAIL) || '';
+}
+
+/* ---------- שליחת מייל סטטוס מיידי (מהטבלה הגלויה בלבד) ---------- */
+
+var DOC_TYPE_LABELS = {
+  passport: 'דרכון', id: 'תעודת זהות', license: 'רישיון נהיגה', visa: 'ויזה', other: 'מסמך'
+};
+
+var EMAIL_SENDER_NAME = 'אפליקציית מסמכי משפחה';
+
+function sendStatusNow() {
+  var email = getReminderEmail();
+  if (!email) return { ok: false, error: 'לא הוגדרה כתובת מייל בהגדרות' };
+  var idx = loadExpiryIndex_();
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  var rows = [];
+  idx.forEach(function (d) {
+    if (!d.expiryDate) return;
+    var exp = new Date(d.expiryDate);
+    var days = Math.round((exp - today) / 86400000);
+    var typeLabel = DOC_TYPE_LABELS[d.docType] || d.docType;
+    var fullLabel = (d.firstName || '') + ' - ' + typeLabel + (d.country ? ' (' + d.country + ')' : '');
+    var color = (days < 0 || days <= 30) ? '#FF3B30' : (days <= 180) ? '#FF9500' : '#34C759';
+    rows.push({ label: fullLabel, days: days, date: formatDDMMYYYY_(exp), color: color });
+  });
+
+  // מיון קפדני לפי תוקף בלבד - מהקרוב ביותר לפג תוקף עד הרחוק ביותר
+  rows.sort(function (a, b) { return a.days - b.days; });
+
+  // חלוקה לשלוש כותרות סטטוס - הסדר בתוך כל כותרת נשאר ממוין לפי תוקף כי rows כבר ממוין
+  var groups = {
+    urgent: rows.filter(function (r) { return r.days < 0 || r.days <= 30; }),
+    soon: rows.filter(function (r) { return r.days > 30 && r.days <= 180; }),
+    ok: rows.filter(function (r) { return r.days > 180; })
+  };
+
+  var html = buildStatusEmailHtml_(groups);
+  MailApp.sendEmail({
+    to: email,
+    name: EMAIL_SENDER_NAME,
+    subject: '📋 סטטוס מסמכי משפחה - ' + formatDDMMYYYY_(new Date()),
+    htmlBody: html
+  });
+  return { ok: true };
+}
+
+function buildStatusEmailHtml_(groups) {
+  function rowsHtml(rows) {
+    return rows.map(function (r) {
+      return '<tr><td style="padding:6px 10px;border-bottom:1px solid #eee;">' + r.label +
+        '</td><td style="padding:6px 10px;border-bottom:1px solid #eee;color:' + r.color + ';font-weight:bold;white-space:nowrap;">' +
+        (r.days < 0 ? 'פג תוקף' : 'עוד ' + r.days + ' ימים') + ' (' + r.date + ')</td></tr>';
+    }).join('');
+  }
+  function section(title, color, rows) {
+    if (!rows.length) return '';
+    return '<h3 style="color:' + color + ';margin-bottom:4px;">' + title + '</h3>' +
+      '<table style="width:100%;border-collapse:collapse;direction:rtl;margin-bottom:14px;">' + rowsHtml(rows) + '</table>';
+  }
+  var total = groups.urgent.length + groups.soon.length + groups.ok.length;
+  var out = '<div dir="rtl" style="font-family:Arial,sans-serif;">';
+  out += '<h2>סיכום מסמכי משפחה</h2>';
+  out += '<p style="color:#8E8E93;font-size:12px;margin-top:-6px;">בכל קטגוריה, המסמכים ממוינים לפי תוקף - מהקרוב ביותר לרחוק ביותר</p>';
+  if (total) {
+    out += section('🛑 דחוף (פג תוקף / עד חודש)', '#FF3B30', groups.urgent);
+    out += section('⚠️ בקרוב (עד 6 חודשים)', '#FF9500', groups.soon);
+    out += section('✅ תקין', '#34C759', groups.ok);
+  } else {
+    out += '<p>אין מסמכים עם תאריך תפוגה מוגדר.</p>';
+  }
+  out += '<p style="color:#8E8E93;font-size:12px;">מייל זה נשלח אוטומטית מאפליקציית "מסמכי משפחה". לפרטים מלאים היכנסו לאפליקציה.</p>';
+  out += '</div>';
+  return out;
+}
+
+/* ---------- טריגר יומי אוטומטי ---------- */
+
+function dailyReminderCheck() {
+  var email = getReminderEmail();
+  if (!email) return;
+  var idx = loadExpiryIndex_();
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var changed = false;
+  var toSend = [];
+
+  idx.forEach(function (d) {
+    if (!d.expiryDate || !d.reminders || !d.reminders.length) return;
+    var exp = new Date(d.expiryDate);
+    var days = Math.round((exp - today) / 86400000);
+    d.sentDays = d.sentDays || [];
+    d.reminders.forEach(function (thresh) {
+      if (days === thresh && d.sentDays.indexOf(thresh) === -1) {
+        toSend.push({ firstName: d.firstName, docType: d.docType, country: d.country, days: days, expiryDate: d.expiryDate });
+        d.sentDays.push(thresh);
+        changed = true;
+      }
+    });
+  });
+
+  if (toSend.length) {
+    toSend.sort(function (a, b) { return a.days - b.days; }); // מיון לפי תוקף - הקרוב ביותר קודם
+    var html = '<div dir="rtl" style="font-family:Arial,sans-serif;"><h2>⏰ תזכורות מסמכים</h2><ul>';
+    toSend.forEach(function (r) {
+      html += '<li>' + (r.firstName || '') + ' - ' + (DOC_TYPE_LABELS[r.docType] || r.docType) + (r.country ? ' (' + r.country + ')' : '') +
+        ': ' + (r.days < 0 ? 'פג תוקף' : 'עוד ' + r.days + ' ימים') + ' (' + formatDDMMYYYY_(new Date(r.expiryDate)) + ')</li>';
+    });
+    html += '</ul><p style="color:#8E8E93;font-size:12px;">היכנסו לאפליקציה לפרטים המלאים.</p></div>';
+    MailApp.sendEmail({ to: email, name: EMAIL_SENDER_NAME, subject: '⏰ תזכורת: מסמך עומד לפוג', htmlBody: html });
+  }
+  if (changed) saveExpiryIndex(idx);
+}
+
+function ensureDailyTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'dailyReminderCheck') return { ok: true, already: true };
+  }
+  ScriptApp.newTrigger('dailyReminderCheck').timeBased().everyDays(1).atHour(8).create();
+  return { ok: true, created: true };
+}
+
+/* ---------- גיבוי ---------- */
+
+function exportBackup() {
+  var data = loadEncryptedData();
+  var idx = loadExpiryIndex_();
+  return JSON.stringify({ data: data.payload, index: idx, exportedAt: new Date().toISOString() });
+}
+
+// שחזור גיבוי - הוולידציה שהמפתח תואם מתבצעת בצד הלקוח (trial decryption) לפני קריאה לפונקציה זו
+function importBackup(jsonString) {
+  var obj = JSON.parse(jsonString);
+  if (obj.data) saveEncryptedData(obj.data, null); // null = דריסה מכוונת ללא בדיקת התנגשות, כי זו פעולת שחזור מפורשת
+  if (obj.index) saveExpiryIndex(obj.index);
+  return { ok: true };
+}
+
+/* ---------- עזר ---------- */
+
+function formatDDMMYYYY_(d) {
+  var dd = ('0' + d.getDate()).slice(-2);
+  var mm = ('0' + (d.getMonth() + 1)).slice(-2);
+  var yyyy = d.getFullYear();
+  return dd + '/' + mm + '/' + yyyy;
+}
+`;
+
 function getAppsScriptUrl(){ return localStorage.getItem(CONFIG_KEY) || ''; }
 Object.defineProperty(window, 'APPS_SCRIPT_URL', { get: getAppsScriptUrl });
 
@@ -2251,6 +2583,29 @@ function showServerSetupScreen(prefillError){
     ${prefillError ? '<div style="color:#FF3B30;font-size:13px;margin-bottom:10px;max-width:300px;">'+prefillError+'</div>' : ''}
     <input id="setupUrlInput" type="text" placeholder="https://script.google.com/macros/s/..." style="width:100%;max-width:320px;padding:12px;border-radius:10px;border:1px solid #ccc;direction:ltr;text-align:left;font-size:13px;margin-bottom:14px;">
     <button class="btn btn-blue" style="max-width:320px;" onclick="saveServerSetup()">שמירה והמשך</button>
+    <button onclick="showGuidedServerSetup()" style="margin-top:16px;background:none;border:none;color:var(--blue);font-family:var(--font);font-size:13px;">עדיין אין לי כתובת - עזרו לי להקים אחת</button>
+  `;
+}
+function showGuidedServerSetup(){
+  const el = document.getElementById('lock-screen');
+  el.innerHTML = `
+    <div class="lock-title">הקמת חשבון אישי 🛠️</div>
+    <div class="lock-sub" style="margin-bottom:16px;max-width:340px;">3 שלבים קצרים, פעם אחת בלבד. הקוד רץ אצלכם, בחשבון הגוגל שלכם בלבד - אין צורך לגעת בפרויקט של מי ששלח לכם את האפליקציה.</div>
+    <div class="longcode-box" style="text-align:right;max-width:340px;">
+      <div style="margin-bottom:14px;">
+        <b>שלב 1</b> - העתיקו את קוד השרת (כפתור אחד, זהו):
+        <button class="btn btn-blue" style="margin-top:8px;" onclick="copyText(EMBEDDED_CODE_GS, ()=>toast('הקוד הועתק ✓'))">📋 העתקת קוד השרת</button>
+      </div>
+      <div style="margin-bottom:14px;">
+        <b>שלב 2</b> - פתחו פרויקט Apps Script חדש וריק (יווצר ישירות בחשבון הגוגל שלכם):
+        <button class="btn btn-blue" style="margin-top:8px;" onclick="window.open('https://script.new','_blank')">➕ פתיחת פרויקט חדש</button>
+        <div style="font-size:12px;color:var(--label3);margin-top:6px;">בעורך שנפתח: מוחקים את מה שכתוב שם, מדביקים (Paste) את הקוד שהעתקתם, ואז למעלה: <b>Deploy → New deployment → ⚙️ Web app</b>. תחת "Execute as" בוחרים <b>Me</b>, תחת "Who has access" בוחרים <b>Anyone</b> (חשוב - לא "Only myself"), ולוחצים <b>Deploy</b> (מאשרים הרשאות כשמתבקש).</div>
+      </div>
+      <div>
+        <b>שלב 3</b> - בסיום תופיע כתובת שמתחילה ב-script.google.com/macros/.../exec - מדביקים אותה במסך הקודם.
+      </div>
+    </div>
+    <button class="btn btn-blue" style="max-width:340px;margin-top:16px;" onclick="showServerSetupScreen()">חזרה להזנת הכתובת</button>
   `;
 }
 async function saveServerSetup(){
