@@ -59,6 +59,7 @@
     <div class="step" id="stepUpload"><div class="step-icon">3</div><div class="step-label">הגדרת ההצפנה</div></div>
     <div class="step" id="stepVersion"><div class="step-icon">4</div><div class="step-label">שמירה</div></div>
     <div class="step" id="stepDeploy"><div class="step-icon">5</div><div class="step-label">סיום הקמה</div></div>
+    <div id="retryStatus" style="font-size:12px;color:var(--label3);text-align:center;margin-top:10px;"></div>
   </div>
 
   <div class="card hidden" id="resultCard">
@@ -82,8 +83,7 @@
 // (הוגדר על ידי מי שהקים את הכלי - אין צורך לגעת בזה כמשתמש קצה)
 // ============================================================
 const GOOGLE_CLIENT_ID = '773654114791-ofcp7db8c635gjn5mu5n81qmp4gvg0vd.apps.googleusercontent.com';
-const SCOPES = 'https://www.googleapis.com/auth/script.projects https://www.googleapis.com/auth/script.deployments';
-
+  const SCOPES = 'https://www.googleapis.com/auth/script.projects https://www.googleapis.com/auth/script.deployments';
 const CODE_GS_SOURCE = `/*************************************************************
  * מסמכי משפחה - קוד שרת (Google Apps Script)
  * ------------------------------------------------------------
@@ -456,7 +456,9 @@ function setStep(id, state){
   if(state==='error') icon.textContent = '✕';
 }
 
-async function apiCall(url, method, body){
+function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
+
+async function apiCallRaw(url, method, body){
   const res = await fetch(url, {
     method: method,
     headers: {
@@ -465,20 +467,46 @@ async function apiCall(url, method, body){
     },
     body: body ? JSON.stringify(body) : undefined
   });
-  const data = await res.json();
-  if(!res.ok){ throw new Error((data.error && data.error.message) || ('שגיאה מהשרת (' + res.status + ')')); }
+  let data = {};
+  try{ data = await res.json(); }catch(e){}
+  if(!res.ok){
+    const err = new Error((data.error && data.error.message) || ('שגיאה מהשרת (' + res.status + ')'));
+    err.status = res.status;
+    throw err;
+  }
   return data;
+}
+
+// לגוגל יש לפעמים עיכוב הפצה פנימי אחרי יצירת פרויקט - קריאה הבאה עלולה להחזיר
+// 404/403 זמנית. מנסים שוב עם המתנה גדלה, בדיוק כמו שגוגל עצמה ממליצה.
+async function apiCall(url, method, body, statusEl){
+  const delays = [2000, 4000, 7000];
+  let lastErr;
+  for(let attempt=0; attempt<=delays.length; attempt++){
+    try{
+      return await apiCallRaw(url, method, body);
+    }catch(e){
+      lastErr = e;
+      const retriable = e.status===404 || e.status===403;
+      if(!retriable || attempt===delays.length) throw e;
+      if(statusEl) statusEl.textContent = 'ממתין לסנכרון של גוגל... (ניסיון ' + (attempt+2) + ')';
+      await sleep(delays[attempt]);
+    }
+  }
+  throw lastErr;
 }
 
 async function runSetup(){
   document.getElementById('loginCard').classList.add('hidden');
   document.getElementById('progressCard').classList.remove('hidden');
+  const statusEl = document.getElementById('retryStatus');
   setStep('stepAuth','done');
   try{
     setStep('stepCreate','active');
-    const project = await apiCall('https://script.googleapis.com/v1/projects', 'POST', { title: 'מסמכי משפחה - שרת אישי' });
+    const project = await apiCall('https://script.googleapis.com/v1/projects', 'POST', { title: 'מסמכי משפחה - שרת אישי' }, statusEl);
     const scriptId = project.scriptId;
     setStep('stepCreate','done');
+    statusEl.textContent = '';
 
     setStep('stepUpload','active');
     await apiCall('https://script.googleapis.com/v1/projects/' + scriptId + ':updateContent', 'POST', {
@@ -486,20 +514,23 @@ async function runSetup(){
         { name: 'Code', type: 'SERVER_JS', source: CODE_GS_SOURCE },
         { name: 'appsscript', type: 'JSON', source: MANIFEST_JSON }
       ]
-    });
+    }, statusEl);
     setStep('stepUpload','done');
+    statusEl.textContent = '';
 
     setStep('stepVersion','active');
-    const version = await apiCall('https://script.googleapis.com/v1/projects/' + scriptId + '/versions', 'POST', { description: 'גרסה ראשונית' });
+    const version = await apiCall('https://script.googleapis.com/v1/projects/' + scriptId + '/versions', 'POST', { description: 'גרסה ראשונית' }, statusEl);
     setStep('stepVersion','done');
+    statusEl.textContent = '';
 
     setStep('stepDeploy','active');
     const deployment = await apiCall('https://script.googleapis.com/v1/projects/' + scriptId + '/deployments', 'POST', {
       versionNumber: version.versionNumber,
       manifestFileName: 'appsscript',
       description: 'פריסה ראשונית - Web App'
-    });
+    }, statusEl);
     setStep('stepDeploy','done');
+    statusEl.textContent = '';
 
     const entry = (deployment.entryPoints || []).find(e=>e.webApp);
     const execUrl = entry && entry.webApp && entry.webApp.url;
