@@ -108,6 +108,9 @@ textarea{resize:vertical;min-height:60px;}
 #lock-screen .lock-title{color:#FFF;}
 #lock-screen .lock-sub{color:rgba(255,255,255,.65);}
 #lock-screen .longcode-box, #lock-screen input{color:var(--label);}
+#lock-screen .guided-setup-box, #lock-screen .guided-setup-box b, #lock-screen .guided-setup-box strong{color:#ffffff;}
+#lock-screen .guided-setup-box .step-note{color:rgba(255,255,255,.85);}
+#lock-screen .guided-setup-box .access-warning{color:#FFD60A;background:rgba(255,214,10,.12);border:1px solid rgba(255,214,10,.45);border-radius:8px;padding:8px 10px;margin-top:8px;font-weight:700;}
 .pin-dots{display:flex;gap:16px;margin:26px 0;}
 .pin-dot{width:13px;height:13px;border-radius:50%;background:rgba(255,255,255,.18);}
 .pin-dot.filled{background:#fff;}
@@ -2599,7 +2602,7 @@ function showGuidedServerSetup(){
   el.innerHTML = `
     <div class="lock-title">הקמת חשבון אישי 🛠️</div>
     <div class="lock-sub" style="margin-bottom:16px;max-width:340px;">3 שלבים קצרים, פעם אחת בלבד. הקוד רץ אצלכם, בחשבון הגוגל שלכם בלבד - אין צורך לגעת בפרויקט של מי ששלח לכם את האפליקציה.</div>
-    <div class="longcode-box" style="text-align:right;max-width:340px;">
+    <div class="longcode-box guided-setup-box" style="text-align:right;max-width:340px;">
       <div style="margin-bottom:14px;">
         <b>שלב 1</b> - העתיקו את קוד השרת (כפתור אחד, זהו):
         <button class="btn btn-blue" style="margin-top:8px;" onclick="copyText(EMBEDDED_CODE_GS, ()=>toast('הקוד הועתק ✓'))">📋 העתקת קוד השרת</button>
@@ -2607,7 +2610,8 @@ function showGuidedServerSetup(){
       <div style="margin-bottom:14px;">
         <b>שלב 2</b> - פתחו פרויקט Apps Script חדש וריק (יווצר ישירות בחשבון הגוגל שלכם):
         <button class="btn btn-blue" style="margin-top:8px;" onclick="window.open('https://script.new','_blank')">➕ פתיחת פרויקט חדש</button>
-        <div style="font-size:12px;color:var(--label3);margin-top:6px;">בעורך שנפתח: מוחקים את מה שכתוב שם, מדביקים (Paste) את הקוד שהעתקתם, ואז למעלה: <b>Deploy → New deployment → ⚙️ Web app</b>. תחת "Execute as" בוחרים <b>Me</b>, תחת "Who has access" בוחרים <b>Anyone</b> (חשוב - לא "Only myself"), ולוחצים <b>Deploy</b> (מאשרים הרשאות כשמתבקש).</div>
+        <div class="step-note" style="font-size:12px;margin-top:6px;">בעורך שנפתח: מוחקים את מה שכתוב שם, מדביקים (Paste) את הקוד שהעתקתם, ואז למעלה: <b>Deploy → New deployment → ⚙️ Web app</b>. תחת "Execute as" בוחרים <b>Me</b>, ולוחצים <b>Deploy</b> (מאשרים הרשאות כשמתבקש).</div>
+        <div class="access-warning" style="font-size:13px;">⚠️ חובה: תחת "Who has access" יש לבחור <u>Anyone</u> (כלומר "לכולם") - ולא "Only myself" ולא כל אפשרות אחרת. אם בוחרים גישה פרטית, האפליקציה לא תוכל לטעון נתונים ותמונות מהשרת ותקבלו שגיאת "Load failed".</div>
       </div>
       <div>
         <b>שלב 3</b> - בסיום תופיע כתובת שמתחילה ב-script.google.com/macros/.../exec - מדביקים אותה במסך הקודם.
