@@ -12,12 +12,12 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
 :root{
-  --bg:#F2F2F7; --card:#FFFFFF;
-  --blue:#007AFF; --green:#34C759; --orange:#FF9500; --red:#FF3B30; --purple:#AF52DE;
-  --navy:#1C1C2E; --blue-deep:#0051D5; --gold:#B4862F;
-  --label:#000000; --label2:rgba(60,60,67,0.85); --label3:#8E8E93;
-  --sep:rgba(60,60,67,0.12); --fill:rgba(120,120,128,0.12); --fill2:rgba(120,120,128,0.20);
-  --shadow:0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.05);
+--bg:#0F172A; --card:#1E293B;
+  --blue:#38BDF8; --green:#4ADE80; --orange:#FB923C; --red:#F87171; --purple:#C084FC;
+  --navy:#0284C7; --blue-deep:#0284C7; --gold:#FACC15;
+  --label:#F8FAFC; --label2:rgba(241,245,249,0.85); --label3:#94A3B8;
+  --sep:rgba(148,163,184,0.15); --fill:rgba(148,163,184,0.12); --fill2:rgba(148,163,184,0.22);
+  --shadow:0 4px 12px rgba(0,0,0,0.3);
   --shadow-sm:0 1px 3px rgba(0,0,0,0.06),0 4px 16px rgba(0,0,0,0.05);
   --r:14px; --r-lg:20px;
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif;
@@ -524,6 +524,14 @@ async function initLockScreen(){
 
 function renderFirstTimeSetup(el){
   el.innerHTML = `
+    <div class="lock-title">📄 מסמכי משפחה</div>
+    <div class="lock-sub" style="margin-bottom:16px;max-width:340px;">אפליקציה פרטית לניהול כל מסמכי המשפחה במקום אחד - דרכונים, תעודות זהות, ויזות ועוד - עם תזכורות אוטומטיות לפני שהם פגי תוקף.</div>
+    <div class="longcode-box" style="text-align:right;max-width:340px;margin-bottom:16px;">
+      <div style="font-weight:700;margin-bottom:6px;">🔒 האבטחה שלכם</div>
+      <div style="font-size:13.5px;color:var(--label2);line-height:1.6;margin-bottom:14px;">כל המידע שלכם מוצפן במכשיר שלכם עוד לפני שהוא נשלח לשמירה - בדיוק כמו כספת. <b>אף אחד - כולל מי שבנה את האפליקציה - לא יכול לראות את המידע שלכם.</b></div>
+      <div style="font-weight:700;margin-bottom:6px;">🔑 הקוד הארוך</div>
+      <div style="font-size:13.5px;color:var(--label2);line-height:1.6;">בעוד רגע תתבקשו לבחור "קוד ארוך" - זה מפתח ההצפנה שלכם, וזה חשוב: <b>רשמו אותו על פתק פיזי במקום בטוח.</b> בלי הקוד הזה, גם אנחנו לא נוכל לעזור לכם לשחזר את המידע - הוא לא נשמר אצלנו בשום מקום.</div>
+    </div>
     <div class="lock-title">ברוכים הבאים 👋</div>
     <div class="lock-sub" style="margin-bottom:20px;">בואו נגדיר את ההצפנה של המסמכים שלכם</div>
     <div class="longcode-box">
